@@ -1,0 +1,1671 @@
+<!DOCTYPE html>
+<html lang="tr" data-theme="dark">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>Borsa Analiz — BIST Paneli</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@300;400;500;600&display=swap" rel="stylesheet"/>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@3.0.0/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
+<style>
+/* ═══════════════════════════════════════════════
+   TOKEN SYSTEM — Dark & Light
+═══════════════════════════════════════════════ */
+:root {
+  --sidebar-w: 260px;
+  --topbar-h:  64px;
+  --radius-lg: 16px;
+  --radius-md: 12px;
+  --radius-sm:  8px;
+  --radius-xs:  6px;
+  --accent:    #ddddddbd;
+  --accent-dim: rgba(240,201,58,.12);
+  --green:     #22c55e;
+  --green-dim: rgba(34,197,94,.12);
+  --red:       #ef4444;
+  --red-dim:   rgba(239,68,68,.12);
+  --blue:      #3b82f6;
+  --blue-dim:  rgba(59,130,246,.12);
+  --purple:    #8b5cf6;
+  --cyan:      #06b6d4;
+  --orange:    #f97316;
+  --black:     #000000;
+  --font:      'Plus Jakarta Sans', sans-serif;
+  --mono:      'JetBrains Mono', monospace;
+  --shadow-sm: 0 1px 4px rgba(0,0,0,.08);
+  --shadow-md: 0 4px 16px rgba(0,0,0,.12);
+  --shadow-lg: 0 8px 32px rgba(0,0,0,.18);
+  --transition: .18s ease;
+}
+
+/* Dark theme (default) */
+[data-theme="dark"] {
+  --bg-base:    #0f1117;
+  --bg-surface: #181b25;
+  --bg-raised:  #1e2130;
+  --bg-hover:   #252838;
+  --border:     rgba(255,255,255,.07);
+  --border-md:  rgba(255,255,255,.12);
+  --text-1:     #f0f2f8;
+  --text-2:     #8b91ac;
+  --text-3:     #4e5470;
+  --sidebar-bg: #13151f;
+  --topbar-bg:  #181b25;
+  --card-bg:    #1e2130;
+  --input-bg:   #13151f;
+  --chart-grid: rgba(255,255,255,.04);
+  --chart-tick: #4e5470;
+  --tooltip-bg: #1e2130;
+  --scrollbar:  rgba(255,255,255,.1);
+}
+
+/* Light theme */
+[data-theme="light"] {
+  --bg-base:    #f1f4f9;
+  --bg-surface: #ffffff;
+  --bg-raised:  #f8fafc;
+  --bg-hover:   #eef1f7;
+  --border:     rgba(0,0,0,.07);
+  --border-md:  rgba(0,0,0,.12);
+  --text-1:     #0f1117;
+  --text-2:     #5a6282;
+  --text-3:     #9ea7c4;
+  --sidebar-bg: #ffffff;
+  --topbar-bg:  #ffffff;
+  --card-bg:    #ffffff;
+  --input-bg:   #f1f4f9;
+  --chart-grid: rgba(0,0,0,.05);
+  --chart-tick: #9ea7c4;
+  --tooltip-bg: #ffffff;
+  --scrollbar:  rgba(0,0,0,.12);
+}
+
+/* ═══════════════════════════════════════════════
+   BASE RESET
+═══════════════════════════════════════════════ */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { height: 100%; font-family: var(--font); font-size: 14px; background: var(--bg-base); color: var(--text-1); line-height: 1.5; transition: background var(--transition), color var(--transition); }
+::-webkit-scrollbar { width: 5px; height: 5px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--scrollbar); border-radius: 99px; }
+a { text-decoration: none; color: inherit; }
+button { font-family: var(--font); cursor: pointer; }
+
+/* ═══════════════════════════════════════════════
+   LAYOUT SHELL
+═══════════════════════════════════════════════ */
+.shell { display: flex; height: 100vh; overflow: hidden; }
+
+/* ═══════════════════════════════════════════════
+   SIDEBAR
+═══════════════════════════════════════════════ */
+.sidebar {
+  width: var(--sidebar-w);
+  min-width: var(--sidebar-w);
+  background: var(--sidebar-bg);
+  border-right: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  overflow: hidden;
+  transition: background var(--transition), border-color var(--transition);
+  z-index: 20;
+}
+
+/* Logo */
+.sb-logo {
+  padding: 22px 20px 18px;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+.sb-logo-mark {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.sb-logo-icon {
+  width: 36px; height: 36px;
+  border-radius: 10px;
+  background: var(--accent);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 18px;
+  flex-shrink: 0;
+}
+.sb-logo-text { line-height: 1.2; }
+.sb-logo-name {
+  font-size: 15px;
+  font-weight: 800;
+  color: var(--text-1);
+  letter-spacing: -.3px;
+}
+.sb-logo-sub {
+  font-size: 10px;
+  color: var(--text-3);
+  letter-spacing: .5px;
+  text-transform: uppercase;
+  margin-top: 1px;
+}
+
+/* Search */
+.sb-search {
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+.sb-search-inner { position: relative; }
+.sb-search-ico {
+  position: absolute; left: 10px; top: 50%;
+  transform: translateY(-50%);
+  font-size: 13px; opacity: .4; pointer-events: none;
+}
+#tickerSearch {
+  width: 100%;
+  background: var(--input-bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text-1);
+  font-family: var(--mono);
+  font-size: 12px;
+  padding: 8px 10px 8px 30px;
+  outline: none;
+  text-transform: uppercase;
+  transition: border-color var(--transition), background var(--transition);
+  letter-spacing: .5px;
+}
+#tickerSearch::placeholder { text-transform: none; font-family: var(--font); opacity: .45; letter-spacing: 0; }
+#tickerSearch:focus { border-color: var(--accent); }
+.sb-search-btn {
+  margin-top: 8px;
+  width: 100%;
+  background: var(--accent);
+  color: #0f1117;
+  border: none;
+  border-radius: var(--radius-sm);
+  padding: 9px;
+  font-weight: 700;
+  font-size: 13px;
+  letter-spacing: .3px;
+  transition: opacity var(--transition), transform .1s;
+}
+.sb-search-btn:hover { opacity: .9; }
+.sb-search-btn:active { transform: scale(.98); }
+
+/* Nav section label */
+.sb-nav-label {
+  padding: 14px 20px 6px;
+  font-size: 10px;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  color: var(--text-3);
+  font-weight: 600;
+  flex-shrink: 0;
+}
+
+/* Stock list */
+.sb-stock-list {
+  flex: 1;
+  overflow-y: auto;
+  padding: 4px 10px 16px;
+}
+.sb-stock-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 10px;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  border: 1px solid transparent;
+  transition: background var(--transition), border-color var(--transition);
+}
+.sb-stock-item:hover { background: var(--bg-hover); }
+.sb-stock-item.active {
+  background: var(--accent-dim);
+  border-color: rgba(240,201,58,.2);
+}
+.sb-stock-item.active .si-ticker { color: var(--accent); }
+.si-avatar {
+  width: 34px; height: 34px;
+  border-radius: var(--radius-sm);
+  background: var(--bg-raised);
+  border: 1px solid var(--border);
+  display: flex; align-items: center; justify-content: center;
+  font-weight: 700;
+  font-size: 10px;
+  color: var(--accent);
+  flex-shrink: 0;
+  letter-spacing: .3px;
+}
+.si-info { flex: 1; min-width: 0; }
+.si-ticker { font-family: var(--mono); font-size: 11px; font-weight: 600; color: var(--text-2); }
+.si-name   { font-size: 12px; color: var(--text-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-top: 1px; }
+.si-sector { font-size: 10px; color: var(--text-3); margin-top: 1px; }
+
+/* ═══════════════════════════════════════════════
+   MAIN AREA
+═══════════════════════════════════════════════ */
+.main-area {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+/* ═══════════════════════════════════════════════
+   TOPBAR
+═══════════════════════════════════════════════ */
+.topbar {
+  height: var(--topbar-h);
+  background: var(--topbar-bg);
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 28px;
+  flex-shrink: 0;
+  z-index: 10;
+  transition: background var(--transition), border-color var(--transition);
+  gap: 16px;
+}
+.topbar-left { display: flex; align-items: center; gap: 14px; min-width: 0; }
+.topbar-ticker {
+  font-size: 20px;
+  font-weight: 800;
+  color: var(--black);
+  letter-spacing: -.3px;
+  white-space: nowrap;
+}
+.topbar-divider { width: 1px; height: 20px; background: var(--border-md); flex-shrink: 0; }
+.topbar-name { font-size: 13px; color: var(--text-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.topbar-right { display: flex; align-items: center; gap: 12px; flex-shrink: 0; }
+.topbar-price { font-family: var(--mono); font-size: 20px; font-weight: 600; letter-spacing: -.5px; }
+.topbar-badge {
+  font-family: var(--mono);
+  font-size: 12px;
+  font-weight: 600;
+  padding: 4px 10px;
+  border-radius: var(--radius-xs);
+  white-space: nowrap;
+}
+.topbar-badge.up   { background: var(--green-dim); color: var(--green); }
+.topbar-badge.dn   { background: var(--red-dim);   color: var(--red); }
+.topbar-badge.flat { background: var(--bg-raised);  color: var(--text-2); }
+
+/* Theme toggle */
+.theme-toggle {
+  width: 36px; height: 36px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-md);
+  background: var(--bg-raised);
+  color: var(--text-2);
+  font-size: 16px;
+  display: flex; align-items: center; justify-content: center;
+  cursor: pointer;
+  transition: all var(--transition);
+  flex-shrink: 0;
+}
+.theme-toggle:hover { border-color: var(--accent); color: var(--accent); }
+
+/* ═══════════════════════════════════════════════
+   CONTENT SCROLL AREA
+═══════════════════════════════════════════════ */
+.content-scroll { flex: 1; overflow-y: auto; }
+.content-inner  { padding: 24px 28px 40px; max-width: 1600px; }
+
+/* ═══════════════════════════════════════════════
+   SECTION HEADER
+═══════════════════════════════════════════════ */
+.sec-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 14px;
+}
+.sec-title {
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: .3px;
+  text-transform: uppercase;
+  color: var(--text-2);
+}
+.sec-line { flex: 1; height: 1px; background: var(--border); }
+
+/* ═══════════════════════════════════════════════
+   COMPANY INFO CARD
+═══════════════════════════════════════════════ */
+.company-card {
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 20px 24px;
+  margin-bottom: 20px;
+  box-shadow: var(--shadow-sm);
+  transition: background var(--transition), border-color var(--transition);
+}
+.company-meta-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-bottom: 10px;
+}
+.meta-badge {
+  display: inline-flex; align-items: center;
+  padding: 3px 10px;
+  border-radius: 99px;
+  font-size: 11px;
+  font-weight: 600;
+  background: var(--blue-dim);
+  color: var(--blue);
+  border: 1px solid rgba(59,130,246,.2);
+}
+.meta-tag {
+  font-size: 11px;
+  color: var(--text-2);
+  padding: 3px 8px;
+  background: var(--bg-raised);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-xs);
+}
+.company-desc-text {
+  font-size: 13px;
+  color: var(--text-2);
+  line-height: 1.75;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.desc-expand-btn {
+  background: none;
+  border: none;
+  color: var(--accent);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  margin-top: 6px;
+  padding: 0;
+  font-family: var(--font);
+}
+
+/* ═══════════════════════════════════════════════
+   METRIC CARDS GRID
+═══════════════════════════════════════════════ */
+.metrics-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(155px, 1fr));
+  gap: 12px;
+  margin-bottom: 20px;
+}
+.m-card {
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: 16px 18px;
+  transition: border-color var(--transition), box-shadow var(--transition), background var(--transition);
+  position: relative;
+  overflow: hidden;
+}
+.m-card::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0;
+  width: 3px; height: 100%;
+  background: transparent;
+  border-radius: 0 0 0 var(--radius-md);
+  transition: background var(--transition);
+}
+.m-card:hover { border-color: var(--border-md); box-shadow: var(--shadow-md); }
+.m-card:hover::before { background: var(--accent); }
+
+.m-label {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .8px;
+  color: var(--text-3);
+  margin-bottom: 8px;
+}
+.m-value {
+  font-family: var(--mono);
+  font-size: 20px;
+  font-weight: 600;
+  color: var(--text-1);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  letter-spacing: -.5px;
+}
+.m-value.na       { color: var(--text-3); font-size: 15px; }
+.m-value.positive { color: var(--green); }
+.m-value.negative { color: var(--red); }
+.m-sub {
+  font-size: 11px;
+  color: var(--text-3);
+  margin-top: 4px;
+  font-weight: 500;
+}
+
+/* ═══════════════════════════════════════════════
+   CHART CARDS
+═══════════════════════════════════════════════ */
+.chart-card {
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 0;
+  margin-bottom: 20px;
+  box-shadow: var(--shadow-sm);
+  transition: background var(--transition), border-color var(--transition);
+  overflow: hidden;
+}
+.chart-card-header {
+  padding: 18px 22px 0;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+.chart-card-title {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text-1);
+  letter-spacing: -.2px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.chart-card-title .icon { font-size: 16px; }
+.chart-card-subtitle {
+  font-size: 11px;
+  color: var(--text-3);
+  margin-top: 3px;
+  font-weight: 400;
+}
+.chart-card-controls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.chart-card-body {
+  padding: 14px 22px 18px;
+}
+.chart-canvas-wrap { position: relative; height: 300px; }
+
+/* ═══════════════════════════════════════════════
+   PERIOD BUTTONS
+═══════════════════════════════════════════════ */
+.period-group { display: flex; gap: 3px; flex-wrap: wrap; }
+.period-btn {
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--text-2);
+  font-family: var(--mono);
+  font-size: 11px;
+  font-weight: 500;
+  padding: 4px 9px;
+  border-radius: var(--radius-xs);
+  cursor: pointer;
+  transition: all var(--transition);
+  letter-spacing: .2px;
+}
+.period-btn:hover { border-color: var(--border-md); color: var(--text-1); }
+.period-btn.active {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #0f1117;
+  font-weight: 700;
+}
+
+/* ═══════════════════════════════════════════════
+   CURRENCY TOGGLE
+═══════════════════════════════════════════════ */
+.cur-group { display: flex; gap: 3px; }
+.cur-btn {
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--text-2);
+  font-family: var(--mono);
+  font-size: 11px;
+  font-weight: 600;
+  padding: 4px 12px;
+  border-radius: var(--radius-xs);
+  cursor: pointer;
+  transition: all var(--transition);
+  letter-spacing: .3px;
+}
+.cur-btn:hover { border-color: var(--border-md); color: var(--text-1); }
+.cur-btn.active-try { background: var(--green-dim); border-color: var(--green); color: var(--green); }
+.cur-btn.active-usd { background: var(--blue-dim);  border-color: var(--blue);  color: var(--blue); }
+
+/* ═══════════════════════════════════════════════
+   COMPARISON CONTROLS
+═══════════════════════════════════════════════ */
+.comp-section { padding: 0 22px 16px; }
+.comp-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-top: 12px;
+}
+.comp-row-label {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .8px;
+  color: var(--text-3);
+  padding-top: 5px;
+  white-space: nowrap;
+  min-width: 80px;
+}
+.chip-group { display: flex; gap: 5px; flex-wrap: wrap; flex: 1; }
+.chip {
+  display: inline-flex; align-items: center; gap: 5px;
+  padding: 4px 10px;
+  border-radius: 99px;
+  border: 1px solid var(--border);
+  font-size: 11px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all var(--transition);
+  user-select: none;
+  color: var(--text-2);
+}
+.chip .cdot { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; }
+.chip.active  { border-color: var(--border-md); background: var(--bg-raised); color: var(--text-1); }
+.chip:not(.active) { opacity: .4; }
+.chip:hover   { opacity: 1; border-color: var(--border-md); }
+
+/* Stock picker */
+.stock-picker-wrap { position: relative; }
+.stock-picker-row  { display: flex; align-items: center; gap: 5px; flex-wrap: wrap; }
+.stock-tags        { display: flex; gap: 5px; flex-wrap: wrap; }
+.stock-tag {
+  display: inline-flex; align-items: center; gap: 4px;
+  padding: 3px 8px 3px 10px;
+  border-radius: 99px;
+  font-family: var(--mono);
+  font-size: 11px;
+  font-weight: 600;
+  border: 1px solid var(--border-md);
+  background: var(--bg-raised);
+  white-space: nowrap;
+}
+.stock-tag-rm {
+  cursor: pointer; color: var(--text-3); font-size: 15px; line-height: 1;
+  margin-left: 2px; transition: color var(--transition); background: none; border: none; padding: 0;
+}
+.stock-tag-rm:hover { color: var(--red); }
+.stock-picker-input {
+  background: var(--input-bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-xs);
+  color: var(--text-1);
+  font-family: var(--mono);
+  font-size: 11px;
+  padding: 5px 10px;
+  outline: none;
+  width: 120px;
+  text-transform: uppercase;
+  transition: border-color var(--transition);
+  letter-spacing: .5px;
+}
+.stock-picker-input::placeholder { text-transform: none; font-family: var(--font); opacity: .4; letter-spacing: 0; font-size: 11px; }
+.stock-picker-input:focus { border-color: var(--accent); }
+.stock-picker-dd {
+  position: absolute;
+  top: calc(100% + 4px); left: 0;
+  min-width: 240px;
+  background: var(--card-bg);
+  border: 1px solid var(--border-md);
+  border-radius: var(--radius-md);
+  z-index: 200;
+  box-shadow: var(--shadow-lg);
+  max-height: 220px;
+  overflow-y: auto;
+}
+.stock-picker-dd.hidden { display: none; }
+.picker-item {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 9px 14px; cursor: pointer; transition: background var(--transition); gap: 8px;
+}
+.picker-item:hover { background: var(--bg-hover); }
+.picker-item.already { opacity: .35; pointer-events: none; }
+.picker-t { font-family: var(--mono); font-size: 11px; font-weight: 600; color: var(--accent); }
+.picker-n { font-size: 11px; color: var(--text-2); text-align: right; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 130px; }
+
+/* ═══════════════════════════════════════════════
+   CHART LEGEND
+═══════════════════════════════════════════════ */
+.legend-row { display: flex; gap: 14px; flex-wrap: wrap; margin-top: 10px; }
+.legend-item { display: flex; align-items: center; gap: 6px; font-size: 11px; color: var(--text-2); font-weight: 500; }
+.legend-dot { width: 10px; height: 10px; border-radius: 3px; flex-shrink: 0; }
+
+/* ═══════════════════════════════════════════════
+   RATIO TABLES
+═══════════════════════════════════════════════ */
+.two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 20px; }
+@media (max-width: 960px) { .two-col { grid-template-columns: 1fr; } }
+
+.table-card {
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  box-shadow: var(--shadow-sm);
+  transition: background var(--transition), border-color var(--transition);
+}
+.table-card-header {
+  padding: 14px 20px;
+  border-bottom: 1px solid var(--border);
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .5px;
+  color: var(--text-2);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.ratio-table { width: 100%; border-collapse: collapse; }
+.ratio-table tr:not(:last-child) td { border-bottom: 1px solid var(--border); }
+.ratio-table td { padding: 10px 20px; font-size: 13px; }
+.ratio-table td:first-child { color: var(--text-2); }
+.ratio-table td:last-child {
+  text-align: right;
+  font-family: var(--mono);
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-1);
+}
+.ratio-table td.na { color: var(--text-3); }
+
+/* ═══════════════════════════════════════════════
+   52-WEEK BAR
+═══════════════════════════════════════════════ */
+.week52-card {
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 20px 24px;
+  margin-bottom: 20px;
+  box-shadow: var(--shadow-sm);
+  transition: background var(--transition), border-color var(--transition);
+}
+.week52-track {
+  position: relative; height: 6px;
+  background: var(--border); border-radius: 3px;
+  margin: 10px 0 14px;
+}
+.week52-fill {
+  position: absolute; height: 100%;
+  background: linear-gradient(90deg, var(--red), var(--green));
+  border-radius: 3px;
+}
+.week52-thumb {
+  position: absolute; top: 50%;
+  transform: translate(-50%,-50%);
+  width: 14px; height: 14px;
+  border-radius: 50%;
+  background: var(--accent);
+  border: 2px solid var(--bg-base);
+  box-shadow: 0 0 0 2px var(--accent);
+}
+.week52-labels {
+  display: flex; justify-content: space-between;
+  font-family: var(--mono); font-size: 11px; font-weight: 600; color: var(--text-2);
+}
+
+/* ═══════════════════════════════════════════════
+   DAILY STATS GRID (smaller cards)
+═══════════════════════════════════════════════ */
+.daily-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(140px,1fr));
+  gap: 12px;
+  margin-bottom: 20px;
+}
+
+/* ═══════════════════════════════════════════════
+   WELCOME / LOADING STATES
+═══════════════════════════════════════════════ */
+.welcome-screen {
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  padding: 80px 20px;
+  gap: 16px; text-align: center;
+}
+.welcome-icon { font-size: 56px; }
+.welcome-title { font-size: 20px; font-weight: 700; color: var(--text-1); }
+.welcome-sub   { font-size: 14px; color: var(--text-3); max-width: 340px; line-height: 1.7; }
+.loading-state {
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  padding: 80px 20px; gap: 14px;
+}
+.spinner {
+  width: 36px; height: 36px;
+  border: 2px solid var(--border);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: spin .8s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+.loading-text { font-size: 13px; color: var(--text-3); }
+.error-state {
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  padding: 80px 20px; gap: 12px; text-align: center;
+}
+.error-icon { font-size: 40px; }
+.error-msg { color: var(--red); font-size: 14px; font-weight: 600; }
+.error-hint { font-size: 12px; color: var(--text-3); }
+
+/* ═══════════════════════════════════════════════
+   TOAST
+═══════════════════════════════════════════════ */
+.toast {
+  position: fixed; bottom: 24px; right: 24px;
+  background: var(--card-bg);
+  border: 1px solid var(--border-md);
+  border-radius: var(--radius-md);
+  padding: 12px 18px;
+  font-size: 13px; color: var(--text-1);
+  z-index: 9999;
+  transform: translateY(16px); opacity: 0;
+  transition: all .25s;
+  pointer-events: none;
+  box-shadow: var(--shadow-lg);
+  max-width: 340px;
+}
+.toast.show { transform: translateY(0); opacity: 1; }
+.toast.err  { border-color: var(--red); color: var(--red); }
+
+/* ═══════════════════════════════════════════════
+   UTILITY
+═══════════════════════════════════════════════ */
+.c-green { color: var(--green) !important; }
+.c-red   { color: var(--red)   !important; }
+.c-gold  { color: var(--accent)!important; }
+
+/* ═══════════════════════════════════════════════
+   RESPONSIVE
+═══════════════════════════════════════════════ */
+@media (max-width: 1024px) {
+  :root { --sidebar-w: 220px; }
+  .content-inner { padding: 18px 20px 36px; }
+}
+@media (max-width: 768px) {
+  .shell { flex-direction: column; }
+  .sidebar { width: 100%; height: auto; min-width: unset; flex-direction: row; flex-wrap: wrap; overflow: visible; }
+  .sb-stock-list { display: none; }
+  .main-area { height: calc(100vh - 140px); }
+  .metrics-grid { grid-template-columns: repeat(2,1fr); }
+}
+</style>
+</head>
+<body>
+
+<div class="shell">
+
+  <!-- ═══════════ SIDEBAR ═══════════ -->
+  <aside class="sidebar">
+    <div class="sb-logo">
+      <div class="sb-logo-mark">
+        <div class="sb-logo-icon">📈</div>
+        <div class="sb-logo-text">
+          <div class="sb-logo-name">Borsa Analiz</div>
+          <div class="sb-logo-sub">BIST · Hisse Analizi</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="sb-search">
+      <div class="sb-search-inner">
+        <span class="sb-search-ico">🔍</span>
+        <input type="text" id="tickerSearch" placeholder="Ticker ara… örn. THYAO" autocomplete="off"/>
+      </div>
+      <button class="sb-search-btn" onclick="searchTicker()">Analiz Et →</button>
+    </div>
+
+    <div class="sb-nav-label">Popüler Hisseler</div>
+    <div class="sb-stock-list" id="stockList"></div>
+  </aside>
+
+  <!-- ═══════════ MAIN ═══════════ -->
+  <div class="main-area">
+
+    <!-- Topbar -->
+    <header class="topbar">
+      <div class="topbar-left">
+        <div class="topbar-ticker" id="topTicker">—</div>
+        <div class="topbar-divider"></div>
+        <div class="topbar-name" id="topName">Borsa Istanbul Hisse Analiz Paneli</div>
+      </div>
+      <div class="topbar-right">
+        <div class="topbar-price" id="topPrice">—</div>
+        <div class="topbar-badge flat" id="topChange">—</div>
+        <button class="theme-toggle" id="themeToggle" onclick="toggleTheme()" title="Tema değiştir">🌙</button>
+      </div>
+    </header>
+
+    <!-- Content -->
+    <div class="content-scroll">
+      <div class="content-inner">
+
+        <!-- Welcome state -->
+        <div class="welcome-screen" id="welcomeMsg">
+          <div class="welcome-icon">📊</div>
+          <div class="welcome-title">Hisse Analizi Paneli</div>
+          <div class="welcome-sub">Soldan bir hisse seçin ya da yukarıdaki arama kutusuna BIST ticker kodu yazıp "Analiz Et" butonuna tıklayın.</div>
+        </div>
+
+        <!-- Dashboard content (injected) -->
+        <div id="dashContent" style="display:none"></div>
+
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- Toast -->
+<div class="toast" id="toast"></div>
+
+<script>
+// ══════════════════════════════════════════════════════
+//  CONFIG & CONSTANTS
+// ══════════════════════════════════════════════════════
+
+const API = 'http://localhost:5000/api';
+
+const POPULAR_STOCKS = [
+    {"ticker": "AEFES.IS", "name": "Anadolu Efes", "sector": "Tüketim"},
+    {"ticker": "AGHOL.IS", "name": "Anadolu Grubu Holding", "sector": "Holding"},
+    {"ticker": "AKBNK.IS", "name": "Akbank", "sector": "Bankacılık"},
+    {"ticker": "AKSA.IS", "name": "Aksa Akrilik", "sector": "Kimya"},
+    {"ticker": "AKSEN.IS", "name": "Aksa Enerji", "sector": "Enerji"},
+    {"ticker": "ALARK.IS", "name": "Alarko Holding", "sector": "Holding"},
+    {"ticker": "ARCLK.IS", "name": "Arçelik", "sector": "Tüketim"},
+    {"ticker": "ASELS.IS", "name": "Aselsan", "sector": "Savunma"},
+    {"ticker": "ASTOR.IS", "name": "Astor Enerji", "sector": "Enerji"},
+    {"ticker": "BIMAS.IS", "name": "BİM", "sector": "Perakende"},
+    {"ticker": "BRYAT.IS", "name": "Borusan Yatırım", "sector": "Holding"},
+    {"ticker": "CCOLA.IS", "name": "Coca Cola İçecek", "sector": "Tüketim"},
+    {"ticker": "CIMSA.IS", "name": "Çimsa", "sector": "Çimento"},
+    {"ticker": "DOHOL.IS", "name": "Doğan Holding", "sector": "Holding"},
+    {"ticker": "DOAS.IS", "name": "Doğuş Otomotiv", "sector": "Otomotiv"},
+    {"ticker": "ECILC.IS", "name": "Eczacıbaşı İlaç", "sector": "Sağlık"},
+    {"ticker": "EGEEN.IS", "name": "Ege Endüstri", "sector": "Otomotiv"},
+    {"ticker": "EKGYO.IS", "name": "Emlak Konut GYO", "sector": "GYO"},
+    {"ticker": "ENJSA.IS", "name": "Enerjisa Enerji", "sector": "Enerji"},
+    {"ticker": "ENKAI.IS", "name": "Enka İnşaat", "sector": "İnşaat"},
+    {"ticker": "EREGL.IS", "name": "Ereğli Demir Çelik", "sector": "Endüstri"},
+    {"ticker": "FROTO.IS", "name": "Ford Otosan", "sector": "Otomotiv"},
+    {"ticker": "GARAN.IS", "name": "Garanti BBVA", "sector": "Bankacılık"},
+    {"ticker": "GESAN.IS", "name": "Girişim Elektrik", "sector": "Enerji"},
+    {"ticker": "GLYHO.IS", "name": "Global Yatırım Holding", "sector": "Holding"},
+    {"ticker": "GUBRF.IS", "name": "Gübre Fabrikaları", "sector": "Tarım"},
+    {"ticker": "HALKB.IS", "name": "Halkbank", "sector": "Bankacılık"},
+    {"ticker": "HEKTS.IS", "name": "Hektaş", "sector": "Tarım"},
+    {"ticker": "ISCTR.IS", "name": "İş Bankası C", "sector": "Bankacılık"},
+    {"ticker": "ISDMR.IS", "name": "İskenderun Demir Çelik", "sector": "Endüstri"},
+    {"ticker": "KCHOL.IS", "name": "Koç Holding", "sector": "Holding"},
+    {"ticker": "KONTR.IS", "name": "Kontrolmatik", "sector": "Teknoloji"},
+    {"ticker": "KOZAA.IS", "name": "Koza Anadolu", "sector": "Madencilik"},
+    {"ticker": "KOZAL.IS", "name": "Koza Altın", "sector": "Madencilik"},
+    {"ticker": "KRDMD.IS", "name": "Kardemir D", "sector": "Endüstri"},
+    {"ticker": "MGROS.IS", "name": "Migros", "sector": "Perakende"},
+    {"ticker": "ODAS.IS", "name": "Odaş Elektrik", "sector": "Enerji"},
+    {"ticker": "OTKAR.IS", "name": "Otokar", "sector": "Savunma"},
+    {"ticker": "OYAKC.IS", "name": "Oyak Çimento", "sector": "Çimento"},
+    {"ticker": "PGSUS.IS", "name": "Pegasus", "sector": "Ulaşım"},
+    {"ticker": "PETKM.IS", "name": "Petkim", "sector": "Petrokimya"},
+    {"ticker": "QUAGR.IS", "name": "Qua Granite", "sector": "İnşaat"},
+    {"ticker": "SAHOL.IS", "name": "Sabancı Holding", "sector": "Holding"},
+    {"ticker": "SASA.IS", "name": "Sasa Polyester", "sector": "Kimya"},
+    {"ticker": "SISE.IS", "name": "Şişecam", "sector": "Endüstri"},
+    {"ticker": "SMRTG.IS", "name": "Smart Güneş", "sector": "Enerji"},
+    {"ticker": "SOKM.IS", "name": "Şok Marketler", "sector": "Perakende"},
+    {"ticker": "TAVHL.IS", "name": "TAV Havalimanları", "sector": "Ulaşım"},
+    {"ticker": "TCELL.IS", "name": "Turkcell", "sector": "Telekom"},
+    {"ticker": "THYAO.IS", "name": "Türk Hava Yolları", "sector": "Ulaşım"},
+    {"ticker": "TKFEN.IS", "name": "Tekfen Holding", "sector": "Holding"},
+    {"ticker": "TOASO.IS", "name": "Tofaş", "sector": "Otomotiv"},
+    {"ticker": "TSKB.IS", "name": "TSKB", "sector": "Bankacılık"},
+    {"ticker": "TTRAK.IS", "name": "Türk Traktör", "sector": "Otomotiv"},
+    {"ticker": "TUPRS.IS", "name": "Tüpraş", "sector": "Enerji"},
+    {"ticker": "ULKER.IS", "name": "Ülker", "sector": "Gıda"},
+    {"ticker": "VAKBN.IS", "name": "Vakıfbank", "sector": "Bankacılık"},
+    {"ticker": "VESTL.IS", "name": "Vestel", "sector": "Teknoloji"},
+    {"ticker": "YKBNK.IS", "name": "Yapı Kredi", "sector": "Bankacılık"},
+];
+
+const COMPARISON_ASSETS = {
+"USD/TRY":        { ticker: "USDTRY=X",  color: "#3b82f6" },
+"Altın":          { ticker: "GC=F",      color: "#f0c93a" },
+"Gümüş":          { ticker: "SI=F",      color: "#94a3b8" },
+"Ham Petrol":     { ticker: "CL=F",      color: "#f97316" },
+"Doğal Gaz":      { ticker: "NG=F",      color: "#10b981" },
+"Bakır":          { ticker: "HG=F",      color: "#b45309" },
+"Platin":         { ticker: "PL=F",      color: "#6366f1" },
+"Paladyum":       { ticker: "PA=F",      color: "#ec4899" },
+"BIST 100":       { ticker: "XU100.IS",  color: "#22c55e" },
+"Bitcoin":        { ticker: "BTC-USD",   color: "#f59e0b" }
+};
+
+
+const PERIODS = ["1D","1W","1M","3M","6M","1Y","YTD","3Y","5Y","Tümü"];
+const PERIOD_MAP_KEY = { "Tümü":"Total" };  // map display→API value
+
+const STOCK_COMP_COLORS = ["#8b5cf6","#06b6d4","#f97316","#ef4444","#ec4899","#10b981","#f0c93a"];
+
+let state = {
+  ticker:      null,
+  period:      "1M",
+  comparisons: [],
+  stockComps:  [],
+  currencies:  ["TRY"],
+  normChart:   null,
+  priceChart:  null,
+  stockData:   null,
+};
+
+// ══════════════════════════════════════════════════════
+//  THEME
+// ══════════════════════════════════════════════════════
+
+function applyTheme(theme) {
+  document.documentElement.setAttribute("data-theme", theme);
+  const btn = document.getElementById("themeToggle");
+  if (btn) btn.textContent = theme === "dark" ? "☀️" : "🌙";
+  localStorage.setItem("ba_theme", theme);
+  // Refresh charts with correct grid color
+  if (state.priceChart || state.normChart) {
+    loadPriceChart();
+    loadNormChart();
+  }
+}
+function toggleTheme() {
+  const current = document.documentElement.getAttribute("data-theme");
+  applyTheme(current === "dark" ? "light" : "dark");
+}
+// Init theme from localStorage
+(function(){
+  const saved = localStorage.getItem("ba_theme") || "dark";
+  applyTheme(saved);
+})();
+
+function isDark() { return document.documentElement.getAttribute("data-theme") === "dark"; }
+function chartGridColor() { return isDark() ? "rgba(255,255,255,.05)" : "rgba(0,0,0,.06)"; }
+function chartTickColor() { return isDark() ? "#4e5470" : "#9ea7c4"; }
+function chartTooltipBg(){ return isDark() ? "#1e2130" : "#ffffff"; }
+
+// ══════════════════════════════════════════════════════
+//  HELPERS
+// ══════════════════════════════════════════════════════
+
+function fmt(v,d=2)    { if(v==null) return "—"; return Number(v).toLocaleString("tr-TR",{minimumFractionDigits:d,maximumFractionDigits:d}); }
+function fmtPct(v)     { if(v==null) return "—"; return (v>0?"+":"")+fmt(v)+"%"; }
+function fmtLarge(v)   { if(v==null) return "—"; if(v>=1e12) return fmt(v/1e12,2)+" T"; if(v>=1e9) return fmt(v/1e9,2)+" Mr"; if(v>=1e6) return fmt(v/1e6,2)+" Mn"; return fmt(v,0); }
+function tickerShort(t){ return t.replace(".IS",""); }
+function abbrev(name)  { return name.split(" ").map(w=>w[0]).join("").substring(0,3).toUpperCase(); }
+function periodApi(p)  { return PERIOD_MAP_KEY[p] || p; }
+
+function showToast(msg, err=false) {
+  const t = document.getElementById("toast");
+  t.textContent = msg;
+  t.className = "toast show" + (err?" err":"");
+  setTimeout(()=>{ t.className="toast"; }, 3200);
+}
+
+async function apiFetch(path) {
+  const r = await fetch(API+path);
+  if (!r.ok) { const e = await r.json().catch(()=>({})); throw new Error(e.error||"API Hatası"); }
+  return r.json();
+}
+
+// ══════════════════════════════════════════════════════
+//  SIDEBAR
+// ══════════════════════════════════════════════════════
+
+function renderStockList() {
+  document.getElementById("stockList").innerHTML = POPULAR_STOCKS.map(s=>`
+    <div class="sb-stock-item ${s.ticker===state.ticker?'active':''}" onclick="loadStock('${s.ticker}')">
+      <div class="si-avatar">${abbrev(s.name)}</div>
+      <div class="si-info">
+        <div class="si-ticker">${tickerShort(s.ticker)}</div>
+        <div class="si-name">${s.name}</div>
+        <div class="si-sector">${s.sector}</div>
+      </div>
+    </div>`).join("");
+}
+
+// ══════════════════════════════════════════════════════
+//  SEARCH
+// ══════════════════════════════════════════════════════
+
+function searchTicker() {
+  let v = document.getElementById("tickerSearch").value.trim().toUpperCase();
+  if (!v) return;
+  if (!v.endsWith(".IS")) v += ".IS";
+  loadStock(v);
+}
+document.getElementById("tickerSearch").addEventListener("keydown", e => { if(e.key==="Enter") searchTicker(); });
+
+// ══════════════════════════════════════════════════════
+//  LOAD STOCK
+// ══════════════════════════════════════════════════════
+
+async function loadStock(ticker) {
+  state.ticker = ticker;
+  [state.normChart, state.priceChart].forEach(c => { if(c) c.destroy(); });
+  state.normChart = null; state.priceChart = null;
+
+  renderStockList();
+  document.getElementById("welcomeMsg").style.display = "none";
+  document.getElementById("dashContent").style.display = "block";
+  document.getElementById("dashContent").innerHTML = `
+    <div class="loading-state">
+      <div class="spinner"></div>
+      <div class="loading-text">Veriler yükleniyor…</div>
+    </div>`;
+
+  document.getElementById("topTicker").textContent = tickerShort(ticker);
+  document.getElementById("topName").textContent = "Yükleniyor…";
+  document.getElementById("topPrice").textContent = "—";
+  const badge = document.getElementById("topChange");
+  badge.textContent = "—"; badge.className = "topbar-badge flat";
+
+  try {
+    const data = await apiFetch(`/stock/${encodeURIComponent(ticker)}`);
+    state.stockData = data;
+    renderTopbar(data);
+    renderDashboard(data);
+    loadPriceChart();
+    loadNormChart();
+  } catch(e) {
+    document.getElementById("dashContent").innerHTML = `
+      <div class="error-state">
+        <div class="error-icon">⚠️</div>
+        <div class="error-msg">${e.message}</div>
+        <div class="error-hint">Lütfen backend'in çalıştığından emin olun: <code>python app.py</code></div>
+      </div>`;
+    showToast(e.message, true);
+  }
+}
+
+// ══════════════════════════════════════════════════════
+//  TOPBAR
+// ══════════════════════════════════════════════════════
+
+function renderTopbar(d) {
+  document.getElementById("topTicker").textContent = tickerShort(d.ticker);
+  document.getElementById("topName").textContent = d.name || d.ticker;
+  document.getElementById("topPrice").textContent = d.current_price!=null
+    ? fmt(d.current_price) + " " + (d.currency||"TRY") : "—";
+  const badge = document.getElementById("topChange");
+  const pct = d.day_change_pct, chg = d.day_change;
+  if (pct!=null) {
+    badge.textContent = (pct>0?"+":"")+fmt(chg)+" ("+fmtPct(pct)+")";
+    badge.className = "topbar-badge " + (pct>=0?"up":"dn");
+  }
+}
+
+// ══════════════════════════════════════════════════════
+//  DASHBOARD RENDER
+// ══════════════════════════════════════════════════════
+
+let descExpanded = false;
+
+function renderDashboard(d) {
+  const r = d.ratios || {};
+  descExpanded = false;
+
+  const keyMetrics = [
+    { label:"F/K Oranı",       val:r.pe_ratio,       sub:"P/E (Geçmiş)" },
+    { label:"İleri F/K",       val:r.forward_pe,     sub:"Forward P/E" },
+    { label:"F/DD Oranı",      val:r.pb_ratio,       sub:"Price/Book" },
+    { label:"Borç/Özsermaye",  val:r.debt_to_equity, sub:"D/E Oranı" },
+    { label:"Cari Oran",       val:r.current_ratio,  sub:"Current Ratio" },
+    { label:"Hızlı Oran",      val:r.quick_ratio,    sub:"Quick Ratio" },
+    { label:"Net Kâr Marjı",   val:r.net_margin!=null?fmtPct(r.net_margin):null, raw:r.net_margin, sub:"Net Margin", pct:true },
+    { label:"Özsermaye Kâr.",  val:r.roe!=null?fmtPct(r.roe):null, raw:r.roe, sub:"ROE", pct:true },
+    { label:"Aktif Kâr.",      val:r.roa!=null?fmtPct(r.roa):null, raw:r.roa, sub:"ROA", pct:true },
+    { label:"EV/FAVÖK",        val:r.ev_ebitda,      sub:"EV/EBITDA" },
+    { label:"Temettü Verimi",  val:r.dividend_yield!=null?fmtPct(r.dividend_yield):null, sub:"Dividend Yield", pct:true },
+    { label:"Beta",            val:r.beta,           sub:"Volatilite" },
+    { label:"Piyasa Değeri",   val:fmtLarge(r.market_cap),  isStr:true, sub:"Market Cap" },
+    { label:"Firma Değeri",    val:fmtLarge(r.enterprise_value), isStr:true, sub:"Enterprise Value" },
+  ];
+
+  // 52-week bar
+  const week52Block = (() => {
+    const lo=r.week52_low, hi=r.week52_high, cur=d.current_price;
+    if (!lo||!hi||!cur) return "";
+    const pct = Math.min(100,Math.max(0,(cur-lo)/(hi-lo)*100));
+    return `
+      <div class="week52-card">
+        <div class="sec-header"><span class="sec-title">📏 52 Haftalık Aralık</span><div class="sec-line"></div></div>
+        <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--text-3);font-weight:600">
+          <span>YIL DİBİ</span><span>YIL ZİRVESİ</span>
+        </div>
+        <div class="week52-track">
+          <div class="week52-fill" style="width:${pct}%"></div>
+          <div class="week52-thumb" style="left:${pct}%"></div>
+        </div>
+        <div class="week52-labels">
+          <span class="c-red">${fmt(lo)}</span>
+          <span class="c-gold">${fmt(cur)} &nbsp;(${fmtPct(((cur-lo)/(lo||1))*100)})</span>
+          <span class="c-green">${fmt(hi)}</span>
+        </div>
+      </div>`;
+  })();
+
+  // Valuation & financial tables
+  const valuation = [
+    ["F/K Oranı (Geçmiş)",  r.pe_ratio!=null?fmt(r.pe_ratio):"—"],
+    ["F/K Oranı (İleri)",   r.forward_pe!=null?fmt(r.forward_pe):"—"],
+    ["F/DD Oranı",          r.pb_ratio!=null?fmt(r.pb_ratio):"—"],
+    ["F/S Oranı",           r.ps_ratio!=null?fmt(r.ps_ratio):"—"],
+    ["EV/FAVÖK",            r.ev_ebitda!=null?fmt(r.ev_ebitda):"—"],
+    ["EV/Gelir",            r.ev_revenue!=null?fmt(r.ev_revenue):"—"],
+    ["PEG Oranı",           r.peg_ratio!=null?fmt(r.peg_ratio):"—"],
+    ["HBK (Geçmiş)",        r.eps_trailing!=null?fmt(r.eps_trailing):"—"],
+    ["HBK (İleri)",         r.eps_forward!=null?fmt(r.eps_forward):"—"],
+    ["Defter Değeri/Hisse", r.book_value!=null?fmt(r.book_value):"—"],
+  ];
+  const financial = [
+    ["Borç/Özsermaye",      r.debt_to_equity!=null?fmt(r.debt_to_equity):"—"],
+    ["Cari Oran",           r.current_ratio!=null?fmt(r.current_ratio):"—"],
+    ["Hızlı Oran",          r.quick_ratio!=null?fmt(r.quick_ratio):"—"],
+    ["Net Kâr Marjı",       r.net_margin!=null?fmtPct(r.net_margin):"—"],
+    ["Brüt Kâr Marjı",      r.gross_margin!=null?fmtPct(r.gross_margin):"—"],
+    ["Faaliyet Kâr Marjı",  r.operating_margin!=null?fmtPct(r.operating_margin):"—"],
+    ["Özsermaye Karlılığı", r.roe!=null?fmtPct(r.roe):"—"],
+    ["Aktif Karlılığı",     r.roa!=null?fmtPct(r.roa):"—"],
+    ["Temettü Verimi",      r.dividend_yield!=null?fmtPct(r.dividend_yield):"—"],
+    ["Ödeme Oranı",         r.payout_ratio!=null?fmtPct(r.payout_ratio):"—"],
+    ["Kazanç Büyümesi",     r.earnings_growth!=null?fmtPct(r.earnings_growth):"—"],
+    ["Gelir Büyümesi",      r.revenue_growth!=null?fmtPct(r.revenue_growth):"—"],
+  ];
+  function tableHtml(rows) {
+    return `<table class="ratio-table">${rows.map(([k,v])=>
+      `<tr><td>${k}</td><td class="${v==='—'?'na':''}">${v}</td></tr>`
+    ).join("")}</table>`;
+  }
+
+  // Benchmark chips
+  const compChips = Object.entries(COMPARISON_ASSETS).map(([label,cfg])=>`
+    <div class="chip ${state.comparisons.includes(label)?'active':''}"
+         onclick="toggleCompare('${label}')" data-label="${label}">
+      <div class="cdot" style="background:${cfg.color}"></div>${label}
+    </div>`).join("");
+
+  // Period buttons
+  const periodBtns = PERIODS.map(p=>
+    `<button class="period-btn ${state.period===p?'active':''}" onclick="setPeriod('${p}')">${p}</button>`
+  ).join("");
+
+  // Stock picker tags
+  const stockTags = state.stockComps.map((sym,i)=>{
+    const col = STOCK_COMP_COLORS[i%STOCK_COMP_COLORS.length];
+    return `<span class="stock-tag" style="border-color:${col};color:${col}">
+      ${tickerShort(sym)}
+      <button class="stock-tag-rm" onclick="removeStockComp('${sym}')" title="Kaldır">×</button>
+    </span>`;
+  }).join("");
+
+  // Picker dropdown
+  const dropdownItems = POPULAR_STOCKS
+    .filter(s=>s.ticker!==state.ticker)
+    .map(s=>`<div class="picker-item ${state.stockComps.includes(s.ticker)?'already':''}" onclick="addStockComp('${s.ticker}')">
+      <span class="picker-t">${tickerShort(s.ticker)}</span>
+      <span class="picker-n">${s.name}</span>
+    </div>`).join("");
+
+  // Currency buttons
+  const tryOn = state.currencies.includes("TRY");
+  const usdOn = state.currencies.includes("USD");
+
+  // Company block
+  const companyBlock = d.description ? `
+    <div class="company-card">
+      <div class="company-meta-row">
+        ${d.sector?`<span class="meta-badge">${d.sector}</span>`:""}
+        ${d.industry?`<span class="meta-tag">${d.industry}</span>`:""}
+        ${d.exchange?`<span class="meta-tag">Borsa: <strong>${d.exchange}</strong></span>`:""}
+        ${d.currency?`<span class="meta-tag">Para Birimi: <strong>${d.currency}</strong></span>`:""}
+      </div>
+      <p class="company-desc-text" id="descText">${d.description}</p>
+      <button class="desc-expand-btn" onclick="toggleDesc()">Daha fazla göster</button>
+    </div>` : "";
+
+  document.getElementById("dashContent").innerHTML = `
+    ${companyBlock}
+
+    <!-- Temel Göstergeler -->
+    <div class="sec-header"><span class="sec-title">📌 Temel Göstergeler</span><div class="sec-line"></div></div>
+    <div class="metrics-grid">
+      ${keyMetrics.map(m=>{
+        const vStr = m.val!=null ? (m.isStr ? m.val : (typeof m.val==="string" ? m.val : fmt(m.val))) : "—";
+        const isNA = vStr==="—";
+        let cls = "";
+        if (!isNA && m.pct && m.raw!=null) cls = m.raw>=0?"positive":"negative";
+        return `<div class="m-card">
+          <div class="m-label">${m.label}</div>
+          <div class="m-value ${isNA?"na":cls}">${vStr}</div>
+          <div class="m-sub">${m.sub}</div>
+        </div>`;
+      }).join("")}
+    </div>
+
+    <!-- Gerçek Fiyat Grafiği -->
+    <div class="chart-card">
+      <div class="chart-card-header">
+        <div>
+          <div class="chart-card-title"><span class="icon">📈</span> Gerçek Fiyat Grafiği</div>
+          <div class="chart-card-subtitle">Hisse fiyatı — dönem boyunca gerçek değerler (baz endekslenmeden)</div>
+        </div>
+        <div class="chart-card-controls">
+          <div class="cur-group">
+            <button class="cur-btn ${tryOn?'active-try':''}" onclick="toggleCurrency('TRY')">₺ TL</button>
+            <button class="cur-btn ${usdOn?'active-usd':''}" onclick="toggleCurrency('USD')">$ USD</button>
+          </div>
+          <div class="period-group">${periodBtns}</div>
+        </div>
+      </div>
+      <div class="chart-card-body">
+        <div class="chart-canvas-wrap"><canvas id="priceChart"></canvas></div>
+        <div class="legend-row" id="priceLegend"></div>
+      </div>
+    </div>
+
+    <!-- Karşılaştırmalı Grafik -->
+    <div class="chart-card">
+      <div class="chart-card-header">
+        <div>
+          <div class="chart-card-title"><span class="icon">📊</span> Karşılaştırmalı Grafik <span style="font-size:11px;font-weight:400;color:var(--text-3);margin-left:4px">(Baz = 100)</span></div>
+          <div class="chart-card-subtitle">Tüm varlıklar eşit başlangıç noktasından — normalize performans karşılaştırması</div>
+        </div>
+        <div class="chart-card-controls">
+          <div class="period-group" id="normPeriodBtns">${periodBtns}</div>
+        </div>
+      </div>
+
+      <div class="comp-section">
+        <div class="comp-row">
+          <span class="comp-row-label">Endeksler</span>
+          <div class="chip-group" id="benchmarkChips">${compChips}</div>
+        </div>
+        <div class="comp-row">
+          <span class="comp-row-label">Hisseler</span>
+          <div class="stock-picker-wrap" id="stockPickerWrap">
+            <div class="stock-picker-row">
+              <div class="stock-tags" id="stockCompTags">${stockTags}</div>
+              <input type="text" class="stock-picker-input" id="stockPickerInput"
+                     placeholder="Hisse ekle…" autocomplete="off"
+                     oninput="filterPickerDd(this.value)" onfocus="showPickerDd()"/>
+            </div>
+            <div class="stock-picker-dd hidden" id="stockPickerDd">${dropdownItems}</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="chart-card-body" style="padding-top:0">
+        <div class="chart-canvas-wrap"><canvas id="normChart"></canvas></div>
+        <div class="legend-row" id="normLegend"></div>
+      </div>
+    </div>
+
+    ${week52Block}
+
+    <!-- Oran Tabloları -->
+    <div class="sec-header"><span class="sec-title">🔢 Finansal Oranlar</span><div class="sec-line"></div></div>
+    <div class="two-col">
+      <div class="table-card">
+        <div class="table-card-header">💰 Değerleme Oranları</div>
+        ${tableHtml(valuation)}
+      </div>
+      <div class="table-card">
+        <div class="table-card-header">🏦 Finansal Sağlık</div>
+        ${tableHtml(financial)}
+      </div>
+    </div>
+
+    <!-- Günlük Veriler -->
+    <div class="sec-header"><span class="sec-title">📋 Günlük Veriler</span><div class="sec-line"></div></div>
+    <div class="daily-grid">
+      ${[
+        ["Açılış",     d.open,          "Open"],
+        ["Kapanış",    d.previous_close,"Önceki Kapanış"],
+        ["Gün Yükseği",d.day_high,      "Day High"],
+        ["Gün Düşüğü", d.day_low,       "Day Low"],
+        ["Ort. Hacim", r.avg_volume,    "Avg Volume"],
+      ].map(([label,val,sub])=>`
+        <div class="m-card">
+          <div class="m-label">${label}</div>
+          <div class="m-value ${val==null?'na':''}">${val!=null?fmt(val):"—"}</div>
+          <div class="m-sub">${sub}</div>
+        </div>`).join("")}
+    </div>
+  `;
+
+  document.addEventListener("click", outsidePickerClick);
+}
+
+// ══════════════════════════════════════════════════════
+//  DESC TOGGLE
+// ══════════════════════════════════════════════════════
+
+function toggleDesc() {
+  descExpanded = !descExpanded;
+  const p = document.getElementById("descText");
+  if (!p) return;
+  p.style.webkitLineClamp = descExpanded ? "unset" : "3";
+  p.nextElementSibling.textContent = descExpanded ? "Daha az göster" : "Daha fazla göster";
+}
+
+// ══════════════════════════════════════════════════════
+//  STOCK PICKER
+// ══════════════════════════════════════════════════════
+
+function showPickerDd() {
+  const dd = document.getElementById("stockPickerDd");
+  if (dd) dd.classList.remove("hidden");
+}
+function filterPickerDd(q) {
+  const dd = document.getElementById("stockPickerDd");
+  if (!dd) return;
+  dd.classList.remove("hidden");
+  const qu = q.trim().toUpperCase();
+  dd.querySelectorAll(".picker-item").forEach(el=>{
+    const t = el.querySelector(".picker-t").textContent;
+    const n = el.querySelector(".picker-n").textContent.toUpperCase();
+    el.style.display = (!qu||t.includes(qu)||n.includes(qu)) ? "" : "none";
+  });
+}
+function outsidePickerClick(e) {
+  const wrap = document.getElementById("stockPickerWrap");
+  if (wrap && !wrap.contains(e.target)) {
+    const dd = document.getElementById("stockPickerDd");
+    if (dd) dd.classList.add("hidden");
+  }
+}
+function addStockComp(ticker) {
+  if (state.stockComps.includes(ticker)) return;
+  state.stockComps.push(ticker);
+  const inp = document.getElementById("stockPickerInput");
+  if (inp) inp.value = "";
+  document.getElementById("stockPickerDd")?.classList.add("hidden");
+  _refreshStockTags();
+  loadNormChart();
+}
+function removeStockComp(ticker) {
+  state.stockComps = state.stockComps.filter(s=>s!==ticker);
+  _refreshStockTags();
+  loadNormChart();
+}
+function _refreshStockTags() {
+  const c = document.getElementById("stockCompTags");
+  if (!c) return;
+  c.innerHTML = state.stockComps.map((sym,i)=>{
+    const col = STOCK_COMP_COLORS[i%STOCK_COMP_COLORS.length];
+    return `<span class="stock-tag" style="border-color:${col};color:${col}">
+      ${tickerShort(sym)}
+      <button class="stock-tag-rm" onclick="removeStockComp('${sym}')" title="Kaldır">×</button>
+    </span>`;
+  }).join("");
+  document.querySelectorAll(".picker-item").forEach(el=>{
+    const t = el.getAttribute("onclick")?.match(/'([^']+)'/)?.[1];
+    if (t) el.classList.toggle("already", state.stockComps.includes(t));
+  });
+}
+
+// ══════════════════════════════════════════════════════
+//  PRICE CHART
+// ══════════════════════════════════════════════════════
+
+async function loadPriceChart() {
+  const ticker = state.ticker;
+  if (!ticker || !state.currencies.length) return;
+  try {
+    const curs = state.currencies.join(",");
+    const data = await apiFetch(`/price?ticker=${encodeURIComponent(ticker)}&period=${periodApi(state.period)}&currencies=${encodeURIComponent(curs)}`);
+    renderPriceChart(data);
+  } catch(e) {
+    showToast("Fiyat grafiği yüklenemedi: "+e.message, true);
+  }
+}
+
+function renderPriceChart(data) {
+  const canvas = document.getElementById("priceChart");
+  if (!canvas) return;
+  if (state.priceChart) { state.priceChart.destroy(); state.priceChart = null; }
+
+  const hasTRY = !!(data.TRY?.length);
+  const hasUSD = !!(data.USD?.length);
+  const both   = hasTRY && hasUSD;
+  const datasets=[], legendItems=[];
+
+  if (hasTRY) {
+    const pts = data.TRY.filter(p=>p.c!=null);
+    datasets.push({
+      label: tickerShort(state.ticker)+" (₺ TL)",
+      data: pts.map(p=>({x:p.t,y:p.c})),
+      borderColor:"#22c55e",
+      backgroundColor: both?"transparent":"rgba(34,197,94,.06)",
+      borderWidth:2, pointRadius:0, tension:.35, fill:!both, yAxisID:"yTRY",
+    });
+    legendItems.push({ label:tickerShort(state.ticker)+" (₺ TL)", color:"#22c55e" });
+  }
+  if (hasUSD) {
+    const pts = data.USD.filter(p=>p.c!=null);
+    datasets.push({
+      label: tickerShort(state.ticker)+" ($ USD)",
+      data: pts.map(p=>({x:p.t,y:p.c})),
+      borderColor:"#3b82f6",
+      backgroundColor: both?"transparent":"rgba(59,130,246,.06)",
+      borderWidth:2, pointRadius:0, tension:.35, fill:!both, yAxisID: both?"yUSD":"yTRY",
+    });
+    legendItems.push({ label:tickerShort(state.ticker)+" ($ USD)", color:"#3b82f6" });
+  }
+
+  const gc = chartGridColor(), tc = chartTickColor(), tt = chartTooltipBg();
+  const scales = {
+    x:{ type:"time", time:{tooltipFormat:"dd MMM yyyy HH:mm"}, grid:{color:gc}, ticks:{color:tc,maxTicksLimit:8,font:{family:"'JetBrains Mono',monospace",size:11}} },
+    yTRY:{
+      position:"left", grid:{color:gc},
+      ticks:{color:both?"#22c55e":tc, font:{family:"'JetBrains Mono',monospace",size:11}, callback:v=>fmt(v,2)},
+      title:{display:both, text:"₺ TL", color:"#22c55e", font:{size:11}},
+    },
+  };
+  if (both) {
+    scales.yUSD={
+      position:"right", grid:{drawOnChartArea:false},
+      ticks:{color:"#3b82f6", font:{family:"'JetBrains Mono',monospace",size:11}, callback:v=>"$"+fmt(v,3)},
+      title:{display:true, text:"$ USD", color:"#3b82f6", font:{size:11}},
+    };
+  }
+
+  state.priceChart = new Chart(canvas.getContext("2d"),{
+    type:"line", data:{datasets},
+    options:{
+      responsive:true, maintainAspectRatio:false,
+      interaction:{mode:"x",intersect:false},
+      scales,
+      plugins:{
+        legend:{display:false},
+        tooltip:{
+          backgroundColor:tt, borderColor:isDark()?"rgba(255,255,255,.1)":"rgba(0,0,0,.08)", borderWidth:1,
+          titleColor:tc, bodyColor:isDark()?"#f0f2f8":"#0f1117", padding:12,
+          callbacks:{
+            label:ctx=>{
+              const isTRY = ctx.dataset.yAxisID==="yTRY" && ctx.dataset.label.includes("₺");
+              return ` ${ctx.dataset.label}: ${isTRY?"₺":"$"}${fmt(ctx.parsed.y,2)}`;
+            }
+          },
+        },
+      },
+    },
+  });
+
+  const leg = document.getElementById("priceLegend");
+  if (leg) leg.innerHTML = legendItems.map(it=>`
+    <div class="legend-item">
+      <div class="legend-dot" style="background:${it.color}"></div>${it.label}
+    </div>`).join("");
+}
+
+// ══════════════════════════════════════════════════════
+//  NORM CHART
+// ══════════════════════════════════════════════════════
+
+async function loadNormChart() {
+  const ticker = state.ticker;
+  if (!ticker) return;
+  try {
+    const data = await apiFetch(
+      `/chart?ticker=${encodeURIComponent(ticker)}&period=${periodApi(state.period)}`+
+      `&comparisons=${encodeURIComponent(state.comparisons.join(","))}`+
+      `&stocks=${encodeURIComponent(state.stockComps.join(","))}`
+    );
+    renderNormChart(data);
+  } catch(e) {
+    showToast("Karşılaştırma grafiği yüklenemedi: "+e.message, true);
+  }
+}
+
+function renderNormChart(data) {
+  const canvas = document.getElementById("normChart");
+  if (!canvas) return;
+  if (state.normChart) { state.normChart.destroy(); state.normChart = null; }
+
+  const datasets=[], legendItems=[];
+  const stockKey = state.ticker;
+  let colorIdx = 0;
+
+  // Main stock
+  if (data[stockKey]) {
+    const pts = data[stockKey].filter(p=>p.n!=null);
+    const first=data[stockKey][0]?.c, last=data[stockKey][data[stockKey].length-1]?.c;
+    const isUp = (last||0)>=(first||0);
+    const col  = isUp?"#22c55e":"#ef4444";
+    datasets.push({
+      label:tickerShort(stockKey), data:pts.map(p=>({x:p.t,y:p.n})),
+      borderColor:col, backgroundColor:isUp?"rgba(34,197,94,.05)":"rgba(239,68,68,.05)",
+      borderWidth:2.5, pointRadius:0, tension:.35, fill:true, order:0,
+    });
+    legendItems.push({ label:tickerShort(stockKey), color:col });
+  }
+
+  // Benchmarks
+  for (const [label,cfg] of Object.entries(COMPARISON_ASSETS)) {
+    if (!state.comparisons.includes(label)||!data[label]) continue;
+    const pts = data[label].filter(p=>p.n!=null);
+    datasets.push({
+      label, data:pts.map(p=>({x:p.t,y:p.n})),
+      borderColor:cfg.color, backgroundColor:"transparent",
+      borderWidth:1.5, borderDash:[5,3], pointRadius:0, tension:.35, fill:false,
+    });
+    legendItems.push({ label, color:cfg.color });
+  }
+
+  // Extra stocks
+  for (const sym of state.stockComps) {
+    if (!data[sym]) continue;
+    const pts = data[sym].filter(p=>p.n!=null);
+    const col = STOCK_COMP_COLORS[colorIdx++%STOCK_COMP_COLORS.length];
+    const info = POPULAR_STOCKS.find(s=>s.ticker===sym);
+    const label = info ? `${tickerShort(sym)} (${info.sector})` : tickerShort(sym);
+    datasets.push({
+      label, data:pts.map(p=>({x:p.t,y:p.n})),
+      borderColor:col, backgroundColor:"transparent",
+      borderWidth:2, borderDash:[3,2], pointRadius:0, tension:.35, fill:false,
+    });
+    legendItems.push({ label, color:col });
+  }
+
+  const gc=chartGridColor(), tc=chartTickColor(), tt=chartTooltipBg();
+  state.normChart = new Chart(canvas.getContext("2d"),{
+    type:"line", data:{datasets},
+    options:{
+      responsive:true, maintainAspectRatio:false,
+      interaction:{mode:"index",intersect:false},
+      scales:{
+        x:{type:"time",time:{tooltipFormat:"dd MMM yyyy HH:mm"},grid:{color:gc},ticks:{color:tc,maxTicksLimit:8,font:{family:"'JetBrains Mono',monospace",size:11}}},
+        y:{grid:{color:gc},ticks:{color:tc,font:{family:"'JetBrains Mono',monospace",size:11},callback:v=>v.toFixed(1)},title:{display:true,text:"Baz = 100",color:tc,font:{size:10}}},
+      },
+      plugins:{
+        legend:{display:false},
+        tooltip:{
+          backgroundColor:tt, borderColor:isDark()?"rgba(255,255,255,.1)":"rgba(0,0,0,.08)", borderWidth:1,
+          titleColor:tc, bodyColor:isDark()?"#f0f2f8":"#0f1117", padding:12,
+          callbacks:{
+            label:ctx=>{
+              const v=ctx.parsed.y, d=v-100, s=d>=0?"+":"";
+              return ` ${ctx.dataset.label}: ${v.toFixed(2)} (${s}${d.toFixed(2)}%)`;
+            }
+          },
+        },
+      },
+    },
+  });
+
+  const leg = document.getElementById("normLegend");
+  if (leg) leg.innerHTML = legendItems.map(it=>`
+    <div class="legend-item">
+      <div class="legend-dot" style="background:${it.color}"></div>${it.label}
+    </div>`).join("");
+}
+
+// ══════════════════════════════════════════════════════
+//  CONTROLS
+// ══════════════════════════════════════════════════════
+
+function setPeriod(p) {
+  state.period = p;
+  document.querySelectorAll(".period-btn").forEach(btn=>
+    btn.classList.toggle("active", btn.textContent===p)
+  );
+  loadPriceChart();
+  loadNormChart();
+}
+
+function toggleCurrency(cur) {
+  if (state.currencies.includes(cur)) {
+    if (state.currencies.length===1) return;
+    state.currencies = state.currencies.filter(c=>c!==cur);
+  } else {
+    state.currencies.push(cur);
+  }
+  document.querySelectorAll(".cur-btn").forEach(btn=>{
+    const isTRY = btn.textContent.includes("TL");
+    btn.className = "cur-btn"+(isTRY
+      ? (state.currencies.includes("TRY")?" active-try":"")
+      : (state.currencies.includes("USD")?" active-usd":""));
+  });
+  loadPriceChart();
+}
+
+function toggleCompare(label) {
+  state.comparisons = state.comparisons.includes(label)
+    ? state.comparisons.filter(c=>c!==label)
+    : [...state.comparisons, label];
+  document.querySelectorAll(".chip").forEach(el=>
+    el.classList.toggle("active", state.comparisons.includes(el.dataset.label))
+  );
+  loadNormChart();
+}
+
+// ══════════════════════════════════════════════════════
+//  INIT
+// ══════════════════════════════════════════════════════
+
+renderStockList();
+</script>
+</body>
+</html>
