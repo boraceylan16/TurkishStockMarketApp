@@ -791,6 +791,38 @@ button { font-family: var(--font); cursor: pointer; }
 .c-red   { color: var(--red)   !important; }
 .c-gold  { color: var(--accent)!important; }
 
+
+/* ═══════════════════════════════════════════════
+   STANDINGS
+═══════════════════════════════════════════════ */
+.standings-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 12px;
+}
+.standings-meta { font-size: 11px; color: var(--text-3); }
+.standings-table-wrap { overflow-x: auto; }
+.standings-table { width: 100%; border-collapse: collapse; }
+.standings-table th,
+.standings-table td { padding: 12px 14px; border-bottom: 1px solid var(--border); }
+.standings-table th {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: .6px;
+  color: var(--text-3);
+  text-align: left;
+}
+.standings-table td { font-size: 13px; color: var(--text-2); }
+.standings-table td.num { text-align: right; font-family: var(--mono); }
+.standings-table td.rank { width: 56px; color: var(--text-1); font-family: var(--mono); }
+.standings-table tr:hover td { background: var(--bg-hover); }
+.standings-pos { color: var(--green) !important; font-weight: 700; }
+.standings-neg { color: var(--red) !important; font-weight: 700; }
+.empty-note { font-size: 12px; color: var(--text-3); padding: 10px 0 2px; }
+
 /* ═══════════════════════════════════════════════
    RESPONSIVE
 ═══════════════════════════════════════════════ */
@@ -875,117 +907,146 @@ button { font-family: var(--font); cursor: pointer; }
 <!-- Toast -->
 <div class="toast" id="toast"></div>
 
-<script>
-// ══════════════════════════════════════════════════════
-//  CONFIG & CONSTANTS
-// ══════════════════════════════════════════════════════
 
+<script>
 const API = 'http://localhost:5000/api';
 
 const POPULAR_STOCKS = [
-    {"ticker": "AEFES.IS", "name": "Anadolu Efes", "sector": "Tüketim"},
-    {"ticker": "AGHOL.IS", "name": "Anadolu Grubu Holding", "sector": "Holding"},
-    {"ticker": "AKBNK.IS", "name": "Akbank", "sector": "Bankacılık"},
-    {"ticker": "AKSA.IS", "name": "Aksa Akrilik", "sector": "Kimya"},
-    {"ticker": "AKSEN.IS", "name": "Aksa Enerji", "sector": "Enerji"},
-    {"ticker": "ALARK.IS", "name": "Alarko Holding", "sector": "Holding"},
-    {"ticker": "ARCLK.IS", "name": "Arçelik", "sector": "Tüketim"},
-    {"ticker": "ASELS.IS", "name": "Aselsan", "sector": "Savunma"},
-    {"ticker": "ASTOR.IS", "name": "Astor Enerji", "sector": "Enerji"},
-    {"ticker": "BIMAS.IS", "name": "BİM", "sector": "Perakende"},
-    {"ticker": "BRYAT.IS", "name": "Borusan Yatırım", "sector": "Holding"},
-    {"ticker": "CCOLA.IS", "name": "Coca Cola İçecek", "sector": "Tüketim"},
-    {"ticker": "CIMSA.IS", "name": "Çimsa", "sector": "Çimento"},
-    {"ticker": "DOHOL.IS", "name": "Doğan Holding", "sector": "Holding"},
-    {"ticker": "DOAS.IS", "name": "Doğuş Otomotiv", "sector": "Otomotiv"},
-    {"ticker": "ECILC.IS", "name": "Eczacıbaşı İlaç", "sector": "Sağlık"},
-    {"ticker": "EGEEN.IS", "name": "Ege Endüstri", "sector": "Otomotiv"},
-    {"ticker": "EKGYO.IS", "name": "Emlak Konut GYO", "sector": "GYO"},
-    {"ticker": "ENJSA.IS", "name": "Enerjisa Enerji", "sector": "Enerji"},
-    {"ticker": "ENKAI.IS", "name": "Enka İnşaat", "sector": "İnşaat"},
-    {"ticker": "EREGL.IS", "name": "Ereğli Demir Çelik", "sector": "Endüstri"},
-    {"ticker": "FROTO.IS", "name": "Ford Otosan", "sector": "Otomotiv"},
-    {"ticker": "GARAN.IS", "name": "Garanti BBVA", "sector": "Bankacılık"},
-    {"ticker": "GESAN.IS", "name": "Girişim Elektrik", "sector": "Enerji"},
-    {"ticker": "GLYHO.IS", "name": "Global Yatırım Holding", "sector": "Holding"},
-    {"ticker": "GUBRF.IS", "name": "Gübre Fabrikaları", "sector": "Tarım"},
-    {"ticker": "HALKB.IS", "name": "Halkbank", "sector": "Bankacılık"},
-    {"ticker": "HEKTS.IS", "name": "Hektaş", "sector": "Tarım"},
-    {"ticker": "ISCTR.IS", "name": "İş Bankası C", "sector": "Bankacılık"},
-    {"ticker": "ISDMR.IS", "name": "İskenderun Demir Çelik", "sector": "Endüstri"},
-    {"ticker": "KCHOL.IS", "name": "Koç Holding", "sector": "Holding"},
-    {"ticker": "KONTR.IS", "name": "Kontrolmatik", "sector": "Teknoloji"},
-    {"ticker": "KOZAA.IS", "name": "Koza Anadolu", "sector": "Madencilik"},
-    {"ticker": "KOZAL.IS", "name": "Koza Altın", "sector": "Madencilik"},
-    {"ticker": "KRDMD.IS", "name": "Kardemir D", "sector": "Endüstri"},
-    {"ticker": "MGROS.IS", "name": "Migros", "sector": "Perakende"},
-    {"ticker": "ODAS.IS", "name": "Odaş Elektrik", "sector": "Enerji"},
-    {"ticker": "OTKAR.IS", "name": "Otokar", "sector": "Savunma"},
-    {"ticker": "OYAKC.IS", "name": "Oyak Çimento", "sector": "Çimento"},
-    {"ticker": "PGSUS.IS", "name": "Pegasus", "sector": "Ulaşım"},
-    {"ticker": "PETKM.IS", "name": "Petkim", "sector": "Petrokimya"},
-    {"ticker": "QUAGR.IS", "name": "Qua Granite", "sector": "İnşaat"},
-    {"ticker": "SAHOL.IS", "name": "Sabancı Holding", "sector": "Holding"},
-    {"ticker": "SASA.IS", "name": "Sasa Polyester", "sector": "Kimya"},
-    {"ticker": "SISE.IS", "name": "Şişecam", "sector": "Endüstri"},
-    {"ticker": "SMRTG.IS", "name": "Smart Güneş", "sector": "Enerji"},
-    {"ticker": "SOKM.IS", "name": "Şok Marketler", "sector": "Perakende"},
-    {"ticker": "TAVHL.IS", "name": "TAV Havalimanları", "sector": "Ulaşım"},
-    {"ticker": "TCELL.IS", "name": "Turkcell", "sector": "Telekom"},
-    {"ticker": "THYAO.IS", "name": "Türk Hava Yolları", "sector": "Ulaşım"},
-    {"ticker": "TKFEN.IS", "name": "Tekfen Holding", "sector": "Holding"},
-    {"ticker": "TOASO.IS", "name": "Tofaş", "sector": "Otomotiv"},
-    {"ticker": "TSKB.IS", "name": "TSKB", "sector": "Bankacılık"},
-    {"ticker": "TTRAK.IS", "name": "Türk Traktör", "sector": "Otomotiv"},
-    {"ticker": "TUPRS.IS", "name": "Tüpraş", "sector": "Enerji"},
-    {"ticker": "ULKER.IS", "name": "Ülker", "sector": "Gıda"},
-    {"ticker": "VAKBN.IS", "name": "Vakıfbank", "sector": "Bankacılık"},
-    {"ticker": "VESTL.IS", "name": "Vestel", "sector": "Teknoloji"},
-    {"ticker": "YKBNK.IS", "name": "Yapı Kredi", "sector": "Bankacılık"},
-];
+  {"ticker":"AEFES.IS","name":"Anadolu Efes","sector":"Tüketim"},
+  {"ticker":"AGHOL.IS","name":"Anadolu Grubu Holding","sector":"Holding"},
+  {"ticker":"AHGAZ.IS","name":"Ahlatcı Doğalgaz","sector":"Enerji"},
+  {"ticker":"AKBNK.IS","name":"Akbank","sector":"Bankacılık"},
+  {"ticker":"AKCNS.IS","name":"Akçansa","sector":"Çimento"},
+  {"ticker":"AKFGY.IS","name":"Akfen GYO","sector":"GYO"},
+  {"ticker":"AKSA.IS","name":"Aksa Akrilik","sector":"Kimya"},
+  {"ticker":"AKSEN.IS","name":"Aksa Enerji","sector":"Enerji"},
+  {"ticker":"ALARK.IS","name":"Alarko Holding","sector":"Holding"},
+  {"ticker":"ALBRK.IS","name":"Albaraka Türk","sector":"Bankacılık"},
+  {"ticker":"ALFAS.IS","name":"Alfa Solar Enerji","sector":"Enerji"},
+  {"ticker":"ARCLK.IS","name":"Arçelik","sector":"Tüketim"},
+  {"ticker":"ASELS.IS","name":"Aselsan","sector":"Savunma"},
+  {"ticker":"ASTOR.IS","name":"Astor Enerji","sector":"Enerji"},
+  {"ticker":"BIMAS.IS","name":"BİM","sector":"Perakende"},
+  {"ticker":"BOBET.IS","name":"Boğaziçi Beton","sector":"İnşaat"},
+  {"ticker":"BRSAN.IS","name":"Borusan Mannesmann","sector":"Sanayi"},
+  {"ticker":"BRYAT.IS","name":"Borusan Yatırım","sector":"Holding"},
+  {"ticker":"CCOLA.IS","name":"Coca Cola İçecek","sector":"Tüketim"},
+  {"ticker":"CIMSA.IS","name":"Çimsa","sector":"Çimento"},
+  {"ticker":"DOAS.IS","name":"Doğuş Otomotiv","sector":"Otomotiv"},
+  {"ticker":"DOHOL.IS","name":"Doğan Holding","sector":"Holding"},
+  {"ticker":"ECILC.IS","name":"Eczacıbaşı İlaç","sector":"Sağlık"},
+  {"ticker":"ECZYT.IS","name":"Eczacıbaşı Yatırım","sector":"Holding"},
+  {"ticker":"EGEEN.IS","name":"Ege Endüstri","sector":"Otomotiv"},
+  {"ticker":"EKGYO.IS","name":"Emlak Konut GYO","sector":"GYO"},
+  {"ticker":"ENJSA.IS","name":"Enerjisa Enerji","sector":"Enerji"},
+  {"ticker":"ENKAI.IS","name":"Enka İnşaat","sector":"İnşaat"},
+  {"ticker":"EREGL.IS","name":"Ereğli Demir Çelik","sector":"Endüstri"},
+  {"ticker":"EUPWR.IS","name":"Europower Enerji","sector":"Enerji"},
+  {"ticker":"FROTO.IS","name":"Ford Otosan","sector":"Otomotiv"},
+  {"ticker":"GARAN.IS","name":"Garanti BBVA","sector":"Bankacılık"},
+  {"ticker":"GESAN.IS","name":"Girişim Elektrik","sector":"Enerji"},
+  {"ticker":"GLYHO.IS","name":"Global Yatırım Holding","sector":"Holding"},
+  {"ticker":"GSDHO.IS","name":"GSD Holding","sector":"Holding"},
+  {"ticker":"GUBRF.IS","name":"Gübre Fabrikaları","sector":"Tarım"},
+  {"ticker":"HALKB.IS","name":"Halkbank","sector":"Bankacılık"},
+  {"ticker":"HEKTS.IS","name":"Hektaş","sector":"Tarım"},
+  {"ticker":"TRENJ.IS","name":"TR Doğal Enerji","sector":"Enerji"},
+  {"ticker":"ISCTR.IS","name":"İş Bankası C","sector":"Bankacılık"},
+  {"ticker":"ISDMR.IS","name":"İskenderun Demir Çelik","sector":"Endüstri"},
+  {"ticker":"ISGYO.IS","name":"İş GYO","sector":"GYO"},
+  {"ticker":"ISMEN.IS","name":"İş Yatırım","sector":"Finans"},
+  {"ticker":"KCAER.IS","name":"Kocaer Çelik","sector":"Sanayi"},
+  {"ticker":"KCHOL.IS","name":"Koç Holding","sector":"Holding"},
+  {"ticker":"KLSER.IS","name":"Kaleseramik","sector":"Sanayi"},
+  {"ticker":"KONTR.IS","name":"Kontrolmatik","sector":"Teknoloji"},
+  {"ticker":"KORDS.IS","name":"Kordsa","sector":"Sanayi"},
+  {"ticker":"KOZAA.IS","name":"Koza Anadolu","sector":"Madencilik"},
+  {"ticker":"KOZAL.IS","name":"Koza Altın","sector":"Madencilik"},
+  {"ticker":"KRDMD.IS","name":"Kardemir D","sector":"Endüstri"},
+  {"ticker":"MAVI.IS","name":"Mavi Giyim","sector":"Perakende"},
+  {"ticker":"MGROS.IS","name":"Migros","sector":"Perakende"},
+  {"ticker":"MIATK.IS","name":"Mia Teknoloji","sector":"Teknoloji"},
+  {"ticker":"ODAS.IS","name":"Odaş Elektrik","sector":"Enerji"},
+  {"ticker":"OTKAR.IS","name":"Otokar","sector":"Savunma"},
+  {"ticker":"OYAKC.IS","name":"Oyak Çimento","sector":"Çimento"},
+  {"ticker":"PETKM.IS","name":"Petkim","sector":"Petrokimya"},
+  {"ticker":"PGSUS.IS","name":"Pegasus","sector":"Ulaşım"},
+  {"ticker":"QUAGR.IS","name":"Qua Granite","sector":"İnşaat"},
+  {"ticker":"SAHOL.IS","name":"Sabancı Holding","sector":"Holding"},
+  {"ticker":"SASA.IS","name":"Sasa Polyester","sector":"Kimya"},
+  {"ticker":"SELEC.IS","name":"Selçuk Ecza Deposu","sector":"Sağlık"},
+  {"ticker":"SISE.IS","name":"Şişecam","sector":"Endüstri"},
+  {"ticker":"SKBNK.IS","name":"Şekerbank","sector":"Bankacılık"},
+  {"ticker":"SMRTG.IS","name":"Smart Güneş","sector":"Enerji"},
+  {"ticker":"SOKM.IS","name":"Şok Marketler","sector":"Perakende"},
+  {"ticker":"TAVHL.IS","name":"TAV Havalimanları","sector":"Ulaşım"},
+  {"ticker":"TCELL.IS","name":"Turkcell","sector":"Telekom"},
+  {"ticker":"THYAO.IS","name":"Türk Hava Yolları","sector":"Ulaşım"},
+  {"ticker":"TKFEN.IS","name":"Tekfen Holding","sector":"Holding"},
+  {"ticker":"TOASO.IS","name":"Tofaş","sector":"Otomotiv"},
+  {"ticker":"TSKB.IS","name":"TSKB","sector":"Bankacılık"},
+  {"ticker":"TTKOM.IS","name":"Türk Telekom","sector":"Telekom"},
+  {"ticker":"TTRAK.IS","name":"Türk Traktör","sector":"Otomotiv"},
+  {"ticker":"TUPRS.IS","name":"Tüpraş","sector":"Enerji"},
+  {"ticker":"ULKER.IS","name":"Ülker","sector":"Gıda"},
+  {"ticker":"VAKBN.IS","name":"Vakıfbank","sector":"Bankacılık"},
+  {"ticker":"VESBE.IS","name":"Vestel Beyaz Eşya","sector":"Sanayi"},
+  {"ticker":"VESTL.IS","name":"Vestel","sector":"Teknoloji"},
+  {"ticker":"YKBNK.IS","name":"Yapı Kredi","sector":"Bankacılık"},
+  {"ticker":"YYLGD.IS","name":"Yayla Agro","sector":"Gıda"},
+  {"ticker":"ZOREN.IS","name":"Zorlu Enerji","sector":"Enerji"}
+]
+
 
 const COMPARISON_ASSETS = {
-"USD/TRY":        { ticker: "USDTRY=X",  color: "#3b82f6" },
-"Altın":          { ticker: "GC=F",      color: "#f0c93a" },
-"Gümüş":          { ticker: "SI=F",      color: "#94a3b8" },
-"Ham Petrol":     { ticker: "CL=F",      color: "#f97316" },
-"Doğal Gaz":      { ticker: "NG=F",      color: "#10b981" },
-"Bakır":          { ticker: "HG=F",      color: "#b45309" },
-"Platin":         { ticker: "PL=F",      color: "#6366f1" },
-"Paladyum":       { ticker: "PA=F",      color: "#ec4899" },
-"BIST 100":       { ticker: "XU100.IS",  color: "#22c55e" },
-"Bitcoin":        { ticker: "BTC-USD",   color: "#f59e0b" }
+  "USD/TRY": { ticker: "USDTRY=X", color: "#3b82f6" },
+  "Altın": { ticker: "GC=F", color: "#f0c93a" },
+  "Gümüş": { ticker: "SI=F", color: "#94a3b8" },
+  "Ham Petrol": { ticker: "CL=F", color: "#f97316" },
+  "Doğal Gaz": { ticker: "NG=F", color: "#10b981" },
+  "Bakır": { ticker: "HG=F", color: "#b45309" },
+  "Platin": { ticker: "PL=F", color: "#6366f1" },
+  "Paladyum": { ticker: "PA=F", color: "#ec4899" },
+  "BIST 100": { ticker: "XU100.IS", color: "#22c55e" },
+  "Bitcoin": { ticker: "BTC-USD", color: "#f59e0b" },
 };
 
+const US_COMPARISON_ASSETS = {
+  "S&P 500": { ticker: "^GSPC", color: "#3b82f6" },
+  "Nasdaq 100": { ticker: "^NDX", color: "#8b5cf6" },
+  "Dow Jones": { ticker: "^DJI", color: "#10b981" },
+  "AAPL": { ticker: "AAPL", color: "#f97316" },
+  "MSFT": { ticker: "MSFT", color: "#06b6d4" },
+  "NVDA": { ticker: "NVDA", color: "#22c55e" },
+  "TSLA": { ticker: "TSLA", color: "#ef4444" },
+};
 
-const PERIODS = ["1D","1W","1M","3M","6M","1Y","YTD","3Y","5Y","Tümü"];
-const PERIOD_MAP_KEY = { "Tümü":"Total" };  // map display→API value
-
-const STOCK_COMP_COLORS = ["#8b5cf6","#06b6d4","#f97316","#ef4444","#ec4899","#10b981","#f0c93a"];
+const PERIODS = ["1D", "1W", "1M", "3M", "6M", "1Y", "YTD", "3Y", "5Y", "Tümü"];
+const PERIOD_MAP_KEY = { "Tümü": "Total" };
+const STOCK_COMP_COLORS = ["#8b5cf6", "#06b6d4", "#f97316", "#ef4444", "#ec4899", "#10b981", "#f0c93a"];
 
 let state = {
-  ticker:      null,
-  period:      "1M",
+  ticker: null,
+  period: "1M",
   comparisons: [],
-  stockComps:  [],
-  currencies:  ["TRY"],
-  normChart:   null,
-  priceChart:  null,
-  stockData:   null,
+  stockComps: [],
+  usdComparisons: [],
+  tryChart: null,
+  usdChart: null,
+  normChart: null,
+  stockData: null,
+  standingsView: "gainers",
+  standingsData: null,
 };
-
-// ══════════════════════════════════════════════════════
-//  THEME
-// ══════════════════════════════════════════════════════
 
 function applyTheme(theme) {
   document.documentElement.setAttribute("data-theme", theme);
   const btn = document.getElementById("themeToggle");
   if (btn) btn.textContent = theme === "dark" ? "☀️" : "🌙";
   localStorage.setItem("ba_theme", theme);
-  // Refresh charts with correct grid color
-  if (state.priceChart || state.normChart) {
-    loadPriceChart();
+  if (state.tryChart || state.usdChart || state.normChart) {
+    loadTryPriceChart();
+    loadUsdChart();
     loadNormChart();
   }
 }
@@ -993,27 +1054,19 @@ function toggleTheme() {
   const current = document.documentElement.getAttribute("data-theme");
   applyTheme(current === "dark" ? "light" : "dark");
 }
-// Init theme from localStorage
-(function(){
-  const saved = localStorage.getItem("ba_theme") || "dark";
-  applyTheme(saved);
-})();
+(function(){ applyTheme(localStorage.getItem("ba_theme") || "dark"); })();
 
 function isDark() { return document.documentElement.getAttribute("data-theme") === "dark"; }
 function chartGridColor() { return isDark() ? "rgba(255,255,255,.05)" : "rgba(0,0,0,.06)"; }
 function chartTickColor() { return isDark() ? "#4e5470" : "#9ea7c4"; }
 function chartTooltipBg(){ return isDark() ? "#1e2130" : "#ffffff"; }
 
-// ══════════════════════════════════════════════════════
-//  HELPERS
-// ══════════════════════════════════════════════════════
-
-function fmt(v,d=2)    { if(v==null) return "—"; return Number(v).toLocaleString("tr-TR",{minimumFractionDigits:d,maximumFractionDigits:d}); }
-function fmtPct(v)     { if(v==null) return "—"; return (v>0?"+":"")+fmt(v)+"%"; }
-function fmtLarge(v)   { if(v==null) return "—"; if(v>=1e12) return fmt(v/1e12,2)+" T"; if(v>=1e9) return fmt(v/1e9,2)+" Mr"; if(v>=1e6) return fmt(v/1e6,2)+" Mn"; return fmt(v,0); }
+function fmt(v,d=2){ if(v==null) return "—"; return Number(v).toLocaleString("tr-TR",{minimumFractionDigits:d,maximumFractionDigits:d}); }
+function fmtPct(v){ if(v==null) return "—"; return (v>0?"+":"") + fmt(v) + "%"; }
+function fmtLarge(v){ if(v==null) return "—"; if(v>=1e12) return fmt(v/1e12,2)+" T"; if(v>=1e9) return fmt(v/1e9,2)+" Mr"; if(v>=1e6) return fmt(v/1e6,2)+" Mn"; return fmt(v,0); }
 function tickerShort(t){ return t.replace(".IS",""); }
-function abbrev(name)  { return name.split(" ").map(w=>w[0]).join("").substring(0,3).toUpperCase(); }
-function periodApi(p)  { return PERIOD_MAP_KEY[p] || p; }
+function abbrev(name){ return name.split(" ").map(w=>w[0]).join("").substring(0,3).toUpperCase(); }
+function periodApi(p){ return PERIOD_MAP_KEY[p] || p; }
 
 function showToast(msg, err=false) {
   const t = document.getElementById("toast");
@@ -1023,14 +1076,10 @@ function showToast(msg, err=false) {
 }
 
 async function apiFetch(path) {
-  const r = await fetch(API+path);
-  if (!r.ok) { const e = await r.json().catch(()=>({})); throw new Error(e.error||"API Hatası"); }
+  const r = await fetch(API + path);
+  if (!r.ok) { const e = await r.json().catch(()=>({})); throw new Error(e.error || "API Hatası"); }
   return r.json();
 }
-
-// ══════════════════════════════════════════════════════
-//  SIDEBAR
-// ══════════════════════════════════════════════════════
 
 function renderStockList() {
   document.getElementById("stockList").innerHTML = POPULAR_STOCKS.map(s=>`
@@ -1044,36 +1093,23 @@ function renderStockList() {
     </div>`).join("");
 }
 
-// ══════════════════════════════════════════════════════
-//  SEARCH
-// ══════════════════════════════════════════════════════
-
 function searchTicker() {
   let v = document.getElementById("tickerSearch").value.trim().toUpperCase();
   if (!v) return;
   if (!v.endsWith(".IS")) v += ".IS";
   loadStock(v);
 }
-document.getElementById("tickerSearch").addEventListener("keydown", e => { if(e.key==="Enter") searchTicker(); });
-
-// ══════════════════════════════════════════════════════
-//  LOAD STOCK
-// ══════════════════════════════════════════════════════
+document.getElementById("tickerSearch").addEventListener("keydown", e => { if (e.key === "Enter") searchTicker(); });
 
 async function loadStock(ticker) {
   state.ticker = ticker;
-  [state.normChart, state.priceChart].forEach(c => { if(c) c.destroy(); });
-  state.normChart = null; state.priceChart = null;
-
+  state.standingsData = null;
+  [state.tryChart, state.usdChart, state.normChart].forEach(c => { if (c) c.destroy(); });
+  state.tryChart = null; state.usdChart = null; state.normChart = null;
   renderStockList();
   document.getElementById("welcomeMsg").style.display = "none";
   document.getElementById("dashContent").style.display = "block";
-  document.getElementById("dashContent").innerHTML = `
-    <div class="loading-state">
-      <div class="spinner"></div>
-      <div class="loading-text">Veriler yükleniyor…</div>
-    </div>`;
-
+  document.getElementById("dashContent").innerHTML = `<div class="loading-state"><div class="spinner"></div><div class="loading-text">Veriler yükleniyor…</div></div>`;
   document.getElementById("topTicker").textContent = tickerShort(ticker);
   document.getElementById("topName").textContent = "Yükleniyor…";
   document.getElementById("topPrice").textContent = "—";
@@ -1085,282 +1121,26 @@ async function loadStock(ticker) {
     state.stockData = data;
     renderTopbar(data);
     renderDashboard(data);
-    loadPriceChart();
-    loadNormChart();
-  } catch(e) {
-    document.getElementById("dashContent").innerHTML = `
-      <div class="error-state">
-        <div class="error-icon">⚠️</div>
-        <div class="error-msg">${e.message}</div>
-        <div class="error-hint">Lütfen backend'in çalıştığından emin olun: <code>python app.py</code></div>
-      </div>`;
+    await Promise.all([loadTryPriceChart(), loadUsdChart(), loadNormChart(), loadStandings()]);
+  } catch (e) {
+    document.getElementById("dashContent").innerHTML = `<div class="error-state"><div class="error-icon">⚠️</div><div class="error-msg">${e.message}</div><div class="error-hint">Lütfen backend'in çalıştığından emin olun: <code>python app_updated.py</code></div></div>`;
     showToast(e.message, true);
   }
 }
 
-// ══════════════════════════════════════════════════════
-//  TOPBAR
-// ══════════════════════════════════════════════════════
-
 function renderTopbar(d) {
   document.getElementById("topTicker").textContent = tickerShort(d.ticker);
   document.getElementById("topName").textContent = d.name || d.ticker;
-  document.getElementById("topPrice").textContent = d.current_price!=null
-    ? fmt(d.current_price) + " " + (d.currency||"TRY") : "—";
+  document.getElementById("topPrice").textContent = d.current_price!=null ? fmt(d.current_price) + " " + (d.currency||"TRY") : "—";
   const badge = document.getElementById("topChange");
   const pct = d.day_change_pct, chg = d.day_change;
-  if (pct!=null) {
-    badge.textContent = (pct>0?"+":"")+fmt(chg)+" ("+fmtPct(pct)+")";
-    badge.className = "topbar-badge " + (pct>=0?"up":"dn");
+  if (pct != null) {
+    badge.textContent = (pct > 0 ? "+" : "") + fmt(chg) + " (" + fmtPct(pct) + ")";
+    badge.className = "topbar-badge " + (pct >= 0 ? "up" : "dn");
   }
 }
-
-// ══════════════════════════════════════════════════════
-//  DASHBOARD RENDER
-// ══════════════════════════════════════════════════════
 
 let descExpanded = false;
-
-function renderDashboard(d) {
-  const r = d.ratios || {};
-  descExpanded = false;
-
-  const keyMetrics = [
-    { label:"F/K Oranı",       val:r.pe_ratio,       sub:"P/E (Geçmiş)" },
-    { label:"İleri F/K",       val:r.forward_pe,     sub:"Forward P/E" },
-    { label:"F/DD Oranı",      val:r.pb_ratio,       sub:"Price/Book" },
-    { label:"Borç/Özsermaye",  val:r.debt_to_equity, sub:"D/E Oranı" },
-    { label:"Cari Oran",       val:r.current_ratio,  sub:"Current Ratio" },
-    { label:"Hızlı Oran",      val:r.quick_ratio,    sub:"Quick Ratio" },
-    { label:"Net Kâr Marjı",   val:r.net_margin!=null?fmtPct(r.net_margin):null, raw:r.net_margin, sub:"Net Margin", pct:true },
-    { label:"Özsermaye Kâr.",  val:r.roe!=null?fmtPct(r.roe):null, raw:r.roe, sub:"ROE", pct:true },
-    { label:"Aktif Kâr.",      val:r.roa!=null?fmtPct(r.roa):null, raw:r.roa, sub:"ROA", pct:true },
-    { label:"EV/FAVÖK",        val:r.ev_ebitda,      sub:"EV/EBITDA" },
-    { label:"Temettü Verimi",  val:r.dividend_yield!=null?fmtPct(r.dividend_yield):null, sub:"Dividend Yield", pct:true },
-    { label:"Beta",            val:r.beta,           sub:"Volatilite" },
-    { label:"Piyasa Değeri",   val:fmtLarge(r.market_cap),  isStr:true, sub:"Market Cap" },
-    { label:"Firma Değeri",    val:fmtLarge(r.enterprise_value), isStr:true, sub:"Enterprise Value" },
-  ];
-
-  // 52-week bar
-  const week52Block = (() => {
-    const lo=r.week52_low, hi=r.week52_high, cur=d.current_price;
-    if (!lo||!hi||!cur) return "";
-    const pct = Math.min(100,Math.max(0,(cur-lo)/(hi-lo)*100));
-    return `
-      <div class="week52-card">
-        <div class="sec-header"><span class="sec-title">📏 52 Haftalık Aralık</span><div class="sec-line"></div></div>
-        <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--text-3);font-weight:600">
-          <span>YIL DİBİ</span><span>YIL ZİRVESİ</span>
-        </div>
-        <div class="week52-track">
-          <div class="week52-fill" style="width:${pct}%"></div>
-          <div class="week52-thumb" style="left:${pct}%"></div>
-        </div>
-        <div class="week52-labels">
-          <span class="c-red">${fmt(lo)}</span>
-          <span class="c-gold">${fmt(cur)} &nbsp;(${fmtPct(((cur-lo)/(lo||1))*100)})</span>
-          <span class="c-green">${fmt(hi)}</span>
-        </div>
-      </div>`;
-  })();
-
-  // Valuation & financial tables
-  const valuation = [
-    ["F/K Oranı (Geçmiş)",  r.pe_ratio!=null?fmt(r.pe_ratio):"—"],
-    ["F/K Oranı (İleri)",   r.forward_pe!=null?fmt(r.forward_pe):"—"],
-    ["F/DD Oranı",          r.pb_ratio!=null?fmt(r.pb_ratio):"—"],
-    ["F/S Oranı",           r.ps_ratio!=null?fmt(r.ps_ratio):"—"],
-    ["EV/FAVÖK",            r.ev_ebitda!=null?fmt(r.ev_ebitda):"—"],
-    ["EV/Gelir",            r.ev_revenue!=null?fmt(r.ev_revenue):"—"],
-    ["PEG Oranı",           r.peg_ratio!=null?fmt(r.peg_ratio):"—"],
-    ["HBK (Geçmiş)",        r.eps_trailing!=null?fmt(r.eps_trailing):"—"],
-    ["HBK (İleri)",         r.eps_forward!=null?fmt(r.eps_forward):"—"],
-    ["Defter Değeri/Hisse", r.book_value!=null?fmt(r.book_value):"—"],
-  ];
-  const financial = [
-    ["Borç/Özsermaye",      r.debt_to_equity!=null?fmt(r.debt_to_equity):"—"],
-    ["Cari Oran",           r.current_ratio!=null?fmt(r.current_ratio):"—"],
-    ["Hızlı Oran",          r.quick_ratio!=null?fmt(r.quick_ratio):"—"],
-    ["Net Kâr Marjı",       r.net_margin!=null?fmtPct(r.net_margin):"—"],
-    ["Brüt Kâr Marjı",      r.gross_margin!=null?fmtPct(r.gross_margin):"—"],
-    ["Faaliyet Kâr Marjı",  r.operating_margin!=null?fmtPct(r.operating_margin):"—"],
-    ["Özsermaye Karlılığı", r.roe!=null?fmtPct(r.roe):"—"],
-    ["Aktif Karlılığı",     r.roa!=null?fmtPct(r.roa):"—"],
-    ["Temettü Verimi",      r.dividend_yield!=null?fmtPct(r.dividend_yield):"—"],
-    ["Ödeme Oranı",         r.payout_ratio!=null?fmtPct(r.payout_ratio):"—"],
-    ["Kazanç Büyümesi",     r.earnings_growth!=null?fmtPct(r.earnings_growth):"—"],
-    ["Gelir Büyümesi",      r.revenue_growth!=null?fmtPct(r.revenue_growth):"—"],
-  ];
-  function tableHtml(rows) {
-    return `<table class="ratio-table">${rows.map(([k,v])=>
-      `<tr><td>${k}</td><td class="${v==='—'?'na':''}">${v}</td></tr>`
-    ).join("")}</table>`;
-  }
-
-  // Benchmark chips
-  const compChips = Object.entries(COMPARISON_ASSETS).map(([label,cfg])=>`
-    <div class="chip ${state.comparisons.includes(label)?'active':''}"
-         onclick="toggleCompare('${label}')" data-label="${label}">
-      <div class="cdot" style="background:${cfg.color}"></div>${label}
-    </div>`).join("");
-
-  // Period buttons
-  const periodBtns = PERIODS.map(p=>
-    `<button class="period-btn ${state.period===p?'active':''}" onclick="setPeriod('${p}')">${p}</button>`
-  ).join("");
-
-  // Stock picker tags
-  const stockTags = state.stockComps.map((sym,i)=>{
-    const col = STOCK_COMP_COLORS[i%STOCK_COMP_COLORS.length];
-    return `<span class="stock-tag" style="border-color:${col};color:${col}">
-      ${tickerShort(sym)}
-      <button class="stock-tag-rm" onclick="removeStockComp('${sym}')" title="Kaldır">×</button>
-    </span>`;
-  }).join("");
-
-  // Picker dropdown
-  const dropdownItems = POPULAR_STOCKS
-    .filter(s=>s.ticker!==state.ticker)
-    .map(s=>`<div class="picker-item ${state.stockComps.includes(s.ticker)?'already':''}" onclick="addStockComp('${s.ticker}')">
-      <span class="picker-t">${tickerShort(s.ticker)}</span>
-      <span class="picker-n">${s.name}</span>
-    </div>`).join("");
-
-  // Currency buttons
-  const tryOn = state.currencies.includes("TRY");
-  const usdOn = state.currencies.includes("USD");
-
-  // Company block
-  const companyBlock = d.description ? `
-    <div class="company-card">
-      <div class="company-meta-row">
-        ${d.sector?`<span class="meta-badge">${d.sector}</span>`:""}
-        ${d.industry?`<span class="meta-tag">${d.industry}</span>`:""}
-        ${d.exchange?`<span class="meta-tag">Borsa: <strong>${d.exchange}</strong></span>`:""}
-        ${d.currency?`<span class="meta-tag">Para Birimi: <strong>${d.currency}</strong></span>`:""}
-      </div>
-      <p class="company-desc-text" id="descText">${d.description}</p>
-      <button class="desc-expand-btn" onclick="toggleDesc()">Daha fazla göster</button>
-    </div>` : "";
-
-  document.getElementById("dashContent").innerHTML = `
-    ${companyBlock}
-
-    <!-- Temel Göstergeler -->
-    <div class="sec-header"><span class="sec-title">📌 Temel Göstergeler</span><div class="sec-line"></div></div>
-    <div class="metrics-grid">
-      ${keyMetrics.map(m=>{
-        const vStr = m.val!=null ? (m.isStr ? m.val : (typeof m.val==="string" ? m.val : fmt(m.val))) : "—";
-        const isNA = vStr==="—";
-        let cls = "";
-        if (!isNA && m.pct && m.raw!=null) cls = m.raw>=0?"positive":"negative";
-        return `<div class="m-card">
-          <div class="m-label">${m.label}</div>
-          <div class="m-value ${isNA?"na":cls}">${vStr}</div>
-          <div class="m-sub">${m.sub}</div>
-        </div>`;
-      }).join("")}
-    </div>
-
-    <!-- Gerçek Fiyat Grafiği -->
-    <div class="chart-card">
-      <div class="chart-card-header">
-        <div>
-          <div class="chart-card-title"><span class="icon">📈</span> Gerçek Fiyat Grafiği</div>
-          <div class="chart-card-subtitle">Hisse fiyatı — dönem boyunca gerçek değerler (baz endekslenmeden)</div>
-        </div>
-        <div class="chart-card-controls">
-          <div class="cur-group">
-            <button class="cur-btn ${tryOn?'active-try':''}" onclick="toggleCurrency('TRY')">₺ TL</button>
-            <button class="cur-btn ${usdOn?'active-usd':''}" onclick="toggleCurrency('USD')">$ USD</button>
-          </div>
-          <div class="period-group">${periodBtns}</div>
-        </div>
-      </div>
-      <div class="chart-card-body">
-        <div class="chart-canvas-wrap"><canvas id="priceChart"></canvas></div>
-        <div class="legend-row" id="priceLegend"></div>
-      </div>
-    </div>
-
-    <!-- Karşılaştırmalı Grafik -->
-    <div class="chart-card">
-      <div class="chart-card-header">
-        <div>
-          <div class="chart-card-title"><span class="icon">📊</span> Karşılaştırmalı Grafik <span style="font-size:11px;font-weight:400;color:var(--text-3);margin-left:4px">(Baz = 100)</span></div>
-          <div class="chart-card-subtitle">Tüm varlıklar eşit başlangıç noktasından — normalize performans karşılaştırması</div>
-        </div>
-        <div class="chart-card-controls">
-          <div class="period-group" id="normPeriodBtns">${periodBtns}</div>
-        </div>
-      </div>
-
-      <div class="comp-section">
-        <div class="comp-row">
-          <span class="comp-row-label">Endeksler</span>
-          <div class="chip-group" id="benchmarkChips">${compChips}</div>
-        </div>
-        <div class="comp-row">
-          <span class="comp-row-label">Hisseler</span>
-          <div class="stock-picker-wrap" id="stockPickerWrap">
-            <div class="stock-picker-row">
-              <div class="stock-tags" id="stockCompTags">${stockTags}</div>
-              <input type="text" class="stock-picker-input" id="stockPickerInput"
-                     placeholder="Hisse ekle…" autocomplete="off"
-                     oninput="filterPickerDd(this.value)" onfocus="showPickerDd()"/>
-            </div>
-            <div class="stock-picker-dd hidden" id="stockPickerDd">${dropdownItems}</div>
-          </div>
-        </div>
-      </div>
-
-      <div class="chart-card-body" style="padding-top:0">
-        <div class="chart-canvas-wrap"><canvas id="normChart"></canvas></div>
-        <div class="legend-row" id="normLegend"></div>
-      </div>
-    </div>
-
-    ${week52Block}
-
-    <!-- Oran Tabloları -->
-    <div class="sec-header"><span class="sec-title">🔢 Finansal Oranlar</span><div class="sec-line"></div></div>
-    <div class="two-col">
-      <div class="table-card">
-        <div class="table-card-header">💰 Değerleme Oranları</div>
-        ${tableHtml(valuation)}
-      </div>
-      <div class="table-card">
-        <div class="table-card-header">🏦 Finansal Sağlık</div>
-        ${tableHtml(financial)}
-      </div>
-    </div>
-
-    <!-- Günlük Veriler -->
-    <div class="sec-header"><span class="sec-title">📋 Günlük Veriler</span><div class="sec-line"></div></div>
-    <div class="daily-grid">
-      ${[
-        ["Açılış",     d.open,          "Open"],
-        ["Kapanış",    d.previous_close,"Önceki Kapanış"],
-        ["Gün Yükseği",d.day_high,      "Day High"],
-        ["Gün Düşüğü", d.day_low,       "Day Low"],
-        ["Ort. Hacim", r.avg_volume,    "Avg Volume"],
-      ].map(([label,val,sub])=>`
-        <div class="m-card">
-          <div class="m-label">${label}</div>
-          <div class="m-value ${val==null?'na':''}">${val!=null?fmt(val):"—"}</div>
-          <div class="m-sub">${sub}</div>
-        </div>`).join("")}
-    </div>
-  `;
-
-  document.addEventListener("click", outsidePickerClick);
-}
-
-// ══════════════════════════════════════════════════════
-//  DESC TOGGLE
-// ══════════════════════════════════════════════════════
-
 function toggleDesc() {
   descExpanded = !descExpanded;
   const p = document.getElementById("descText");
@@ -1369,303 +1149,288 @@ function toggleDesc() {
   p.nextElementSibling.textContent = descExpanded ? "Daha az göster" : "Daha fazla göster";
 }
 
-// ══════════════════════════════════════════════════════
-//  STOCK PICKER
-// ══════════════════════════════════════════════════════
+function renderDashboard(d) {
+  const r = d.ratios || {};
+  descExpanded = false;
+  const keyMetrics = [
+    { label:"F/K Oranı", val:r.pe_ratio, sub:"P/E (Geçmiş)" },
+    { label:"İleri F/K", val:r.forward_pe, sub:"Forward P/E" },
+    { label:"F/DD Oranı", val:r.pb_ratio, sub:"Price/Book" },
+    { label:"Borç/Özsermaye", val:r.debt_to_equity, sub:"D/E Oranı" },
+    { label:"Cari Oran", val:r.current_ratio, sub:"Current Ratio" },
+    { label:"Hızlı Oran", val:r.quick_ratio, sub:"Quick Ratio" },
+    { label:"Net Kâr Marjı", val:r.net_margin!=null?fmtPct(r.net_margin):null, raw:r.net_margin, sub:"Net Margin", pct:true },
+    { label:"Özsermaye Kâr.", val:r.roe!=null?fmtPct(r.roe):null, raw:r.roe, sub:"ROE", pct:true },
+    { label:"Aktif Kâr.", val:r.roa!=null?fmtPct(r.roa):null, raw:r.roa, sub:"ROA", pct:true },
+    { label:"EV/FAVÖK", val:r.ev_ebitda, sub:"EV/EBITDA" },
+    { label:"Temettü Verimi", val:r.dividend_yield!=null?fmtPct(r.dividend_yield):null, sub:"Dividend Yield", pct:true },
+    { label:"Beta", val:r.beta, sub:"Volatilite" },
+    { label:"Piyasa Değeri", val:fmtLarge(r.market_cap), isStr:true, sub:"Market Cap" },
+    { label:"Firma Değeri", val:fmtLarge(r.enterprise_value), isStr:true, sub:"Enterprise Value" },
+  ];
 
-function showPickerDd() {
-  const dd = document.getElementById("stockPickerDd");
-  if (dd) dd.classList.remove("hidden");
-}
-function filterPickerDd(q) {
-  const dd = document.getElementById("stockPickerDd");
-  if (!dd) return;
-  dd.classList.remove("hidden");
-  const qu = q.trim().toUpperCase();
-  dd.querySelectorAll(".picker-item").forEach(el=>{
-    const t = el.querySelector(".picker-t").textContent;
-    const n = el.querySelector(".picker-n").textContent.toUpperCase();
-    el.style.display = (!qu||t.includes(qu)||n.includes(qu)) ? "" : "none";
-  });
-}
-function outsidePickerClick(e) {
-  const wrap = document.getElementById("stockPickerWrap");
-  if (wrap && !wrap.contains(e.target)) {
-    const dd = document.getElementById("stockPickerDd");
-    if (dd) dd.classList.add("hidden");
-  }
-}
-function addStockComp(ticker) {
-  if (state.stockComps.includes(ticker)) return;
-  state.stockComps.push(ticker);
-  const inp = document.getElementById("stockPickerInput");
-  if (inp) inp.value = "";
-  document.getElementById("stockPickerDd")?.classList.add("hidden");
-  _refreshStockTags();
-  loadNormChart();
-}
-function removeStockComp(ticker) {
-  state.stockComps = state.stockComps.filter(s=>s!==ticker);
-  _refreshStockTags();
-  loadNormChart();
-}
-function _refreshStockTags() {
-  const c = document.getElementById("stockCompTags");
-  if (!c) return;
-  c.innerHTML = state.stockComps.map((sym,i)=>{
-    const col = STOCK_COMP_COLORS[i%STOCK_COMP_COLORS.length];
-    return `<span class="stock-tag" style="border-color:${col};color:${col}">
-      ${tickerShort(sym)}
-      <button class="stock-tag-rm" onclick="removeStockComp('${sym}')" title="Kaldır">×</button>
-    </span>`;
-  }).join("");
-  document.querySelectorAll(".picker-item").forEach(el=>{
-    const t = el.getAttribute("onclick")?.match(/'([^']+)'/)?.[1];
-    if (t) el.classList.toggle("already", state.stockComps.includes(t));
-  });
+  const week52Block = (() => {
+    const lo = r.week52_low, hi = r.week52_high, cur = d.current_price;
+    if (!lo || !hi || !cur) return "";
+    const pct = Math.min(100, Math.max(0, (cur - lo) / (hi - lo) * 100));
+    return `<div class="week52-card"><div class="sec-header"><span class="sec-title">📏 52 Haftalık Aralık</span><div class="sec-line"></div></div><div style="display:flex;justify-content:space-between;font-size:11px;color:var(--text-3);font-weight:600"><span>YIL DİBİ</span><span>YIL ZİRVESİ</span></div><div class="week52-track"><div class="week52-fill" style="width:${pct}%"></div><div class="week52-thumb" style="left:${pct}%"></div></div><div class="week52-labels"><span class="c-red">${fmt(lo)}</span><span class="c-gold">${fmt(cur)}</span><span class="c-green">${fmt(hi)}</span></div></div>`;
+  })();
+
+  const valuation = [
+    ["F/K Oranı (Geçmiş)", r.pe_ratio!=null?fmt(r.pe_ratio):"—"],
+    ["F/K Oranı (İleri)", r.forward_pe!=null?fmt(r.forward_pe):"—"],
+    ["F/DD Oranı", r.pb_ratio!=null?fmt(r.pb_ratio):"—"],
+    ["F/S Oranı", r.ps_ratio!=null?fmt(r.ps_ratio):"—"],
+    ["EV/FAVÖK", r.ev_ebitda!=null?fmt(r.ev_ebitda):"—"],
+    ["EV/Gelir", r.ev_revenue!=null?fmt(r.ev_revenue):"—"],
+    ["PEG Oranı", r.peg_ratio!=null?fmt(r.peg_ratio):"—"],
+    ["HBK (Geçmiş)", r.eps_trailing!=null?fmt(r.eps_trailing):"—"],
+    ["HBK (İleri)", r.eps_forward!=null?fmt(r.eps_forward):"—"],
+    ["Defter Değeri/Hisse", r.book_value!=null?fmt(r.book_value):"—"],
+  ];
+  const financial = [
+    ["Borç/Özsermaye", r.debt_to_equity!=null?fmt(r.debt_to_equity):"—"],
+    ["Cari Oran", r.current_ratio!=null?fmt(r.current_ratio):"—"],
+    ["Hızlı Oran", r.quick_ratio!=null?fmt(r.quick_ratio):"—"],
+    ["Net Kâr Marjı", r.net_margin!=null?fmtPct(r.net_margin):"—"],
+    ["Brüt Kâr Marjı", r.gross_margin!=null?fmtPct(r.gross_margin):"—"],
+    ["Faaliyet Kâr Marjı", r.operating_margin!=null?fmtPct(r.operating_margin):"—"],
+    ["Özsermaye Karlılığı", r.roe!=null?fmtPct(r.roe):"—"],
+    ["Aktif Karlılığı", r.roa!=null?fmtPct(r.roa):"—"],
+    ["Temettü Verimi", r.dividend_yield!=null?fmtPct(r.dividend_yield):"—"],
+    ["Ödeme Oranı", r.payout_ratio!=null?fmtPct(r.payout_ratio):"—"],
+    ["Kazanç Büyümesi", r.earnings_growth!=null?fmtPct(r.earnings_growth):"—"],
+    ["Gelir Büyümesi", r.revenue_growth!=null?fmtPct(r.revenue_growth):"—"],
+  ];
+  const periodBtns = PERIODS.map(p => `<button class="period-btn ${state.period===p?'active':''}" onclick="setPeriod('${p}')">${p}</button>`).join("");
+  const compChips = Object.entries(COMPARISON_ASSETS).map(([label,cfg]) => `<div class="chip ${state.comparisons.includes(label)?'active':''}" onclick="toggleCompare('${label}')" data-label="${label}"><div class="cdot" style="background:${cfg.color}"></div>${label}</div>`).join("");
+  const usdCompChips = Object.entries(US_COMPARISON_ASSETS).map(([label,cfg]) => `<div class="chip ${state.usdComparisons.includes(label)?'active':''}" onclick="toggleUsdCompare('${label}')" data-usd-label="${label}"><div class="cdot" style="background:${cfg.color}"></div>${label}</div>`).join("");
+  const stockTags = state.stockComps.map((sym,i)=>{ const col = STOCK_COMP_COLORS[i%STOCK_COMP_COLORS.length]; return `<span class="stock-tag" style="border-color:${col};color:${col}">${tickerShort(sym)}<button class="stock-tag-rm" onclick="removeStockComp('${sym}')">×</button></span>`; }).join("");
+  const dropdownItems = POPULAR_STOCKS.filter(s=>s.ticker!==state.ticker).map(s=>`<div class="picker-item ${state.stockComps.includes(s.ticker)?'already':''}" onclick="addStockComp('${s.ticker}')"><span class="picker-t">${tickerShort(s.ticker)}</span><span class="picker-n">${s.name}</span></div>`).join("");
+  const tableHtml = rows => `<table class="ratio-table">${rows.map(([k,v])=>`<tr><td>${k}</td><td class="${v==='—'?'na':''}">${v}</td></tr>`).join("")}</table>`;
+  const companyBlock = d.description ? `<div class="company-card"><div class="company-meta-row">${d.sector?`<span class="meta-badge">${d.sector}</span>`:""}${d.industry?`<span class="meta-tag">${d.industry}</span>`:""}${d.exchange?`<span class="meta-tag">Borsa: <strong>${d.exchange}</strong></span>`:""}${d.currency?`<span class="meta-tag">Para Birimi: <strong>${d.currency}</strong></span>`:""}</div><p class="company-desc-text" id="descText">${d.description}</p><button class="desc-expand-btn" onclick="toggleDesc()">Daha fazla göster</button></div>` : "";
+
+  document.getElementById("dashContent").innerHTML = `
+    ${companyBlock}
+    <div class="sec-header"><span class="sec-title">📌 Temel Göstergeler</span><div class="sec-line"></div></div>
+    <div class="metrics-grid">${keyMetrics.map(m=>{ const vStr = m.val!=null ? (m.isStr ? m.val : (typeof m.val === "string" ? m.val : fmt(m.val))) : "—"; const isNA = vStr === "—"; let cls = ""; if (!isNA && m.pct && m.raw != null) cls = m.raw >= 0 ? "positive" : "negative"; return `<div class="m-card"><div class="m-label">${m.label}</div><div class="m-value ${isNA?'na':cls}">${vStr}</div><div class="m-sub">${m.sub}</div></div>`; }).join("")}</div>
+
+    <div class="chart-card">
+      <div class="chart-card-header">
+        <div><div class="chart-card-title"><span class="icon">₺</span> TRY Fiyat Grafiği</div><div class="chart-card-subtitle">Sadece TL bazlı gerçek fiyat serisi</div></div>
+        <div class="chart-card-controls"><div class="period-group">${periodBtns}</div></div>
+      </div>
+      <div class="chart-card-body"><div class="chart-canvas-wrap"><canvas id="tryPriceChart"></canvas></div><div class="legend-row" id="tryLegend"></div></div>
+    </div>
+
+    <div class="chart-card">
+      <div class="chart-card-header">
+        <div><div class="chart-card-title"><span class="icon">$</span> USD Fiyat Grafiği (Global Karşılaştırmalı)</div><div class="chart-card-subtitle">Ana seri USD'ye çevrilir. Global karşılaştırmalar okunabilirlik için baz 100 normalize edilir.</div></div>
+        <div class="chart-card-controls"><div class="period-group">${periodBtns}</div></div>
+      </div>
+      <div class="comp-section"><div class="comp-row"><span class="comp-row-label">ABD Varlıkları</span><div class="chip-group">${usdCompChips}</div></div></div>
+      <div class="chart-card-body" style="padding-top:0"><div class="chart-canvas-wrap"><canvas id="usdPriceChart"></canvas></div><div class="legend-row" id="usdLegend"></div></div>
+    </div>
+
+    <div class="chart-card">
+      <div class="chart-card-header">
+        <div><div class="chart-card-title"><span class="icon">📊</span> Karşılaştırmalı Grafik <span style="font-size:11px;font-weight:400;color:var(--text-3);margin-left:4px">(Baz = 100)</span></div><div class="chart-card-subtitle">Mevcut yerel benchmark ve hisse karşılaştırma sistemi korunur</div></div>
+        <div class="chart-card-controls"><div class="period-group">${periodBtns}</div></div>
+      </div>
+      <div class="comp-section">
+        <div class="comp-row"><span class="comp-row-label">Endeksler</span><div class="chip-group">${compChips}</div></div>
+        <div class="comp-row"><span class="comp-row-label">Hisseler</span><div class="stock-picker-wrap" id="stockPickerWrap"><div class="stock-picker-row"><div class="stock-tags" id="stockCompTags">${stockTags}</div><input type="text" class="stock-picker-input" id="stockPickerInput" placeholder="Hisse ekle…" autocomplete="off" oninput="filterPickerDd(this.value)" onfocus="showPickerDd()"/></div><div class="stock-picker-dd hidden" id="stockPickerDd">${dropdownItems}</div></div></div>
+      </div>
+      <div class="chart-card-body" style="padding-top:0"><div class="chart-canvas-wrap"><canvas id="normChart"></canvas></div><div class="legend-row" id="normLegend"></div></div>
+    </div>
+
+    <div class="table-card" id="standingsCard">
+      <div class="table-card-header">🏁 Performans Sıralaması</div>
+      <div style="padding:16px 20px 18px">
+        <div class="standings-toolbar">
+          <div class="period-group">
+            <button class="period-btn ${state.standingsView==='gainers'?'active':''}" onclick="setStandingsView('gainers')">Top 10 Yükselenler</button>
+            <button class="period-btn ${state.standingsView==='losers'?'active':''}" onclick="setStandingsView('losers')">Top 10 Düşenler</button>
+            <button class="period-btn ${state.standingsView==='all'?'active':''}" onclick="setStandingsView('all')">Tümü</button>
+          </div>
+          <div class="standings-meta" id="standingsMeta">${state.period} dönemine göre yükleniyor…</div>
+        </div>
+        <div class="standings-table-wrap" id="standingsWrap"><div class="empty-note">Yükleniyor…</div></div>
+      </div>
+    </div>
+
+    ${week52Block}
+
+    <div class="sec-header"><span class="sec-title">🔢 Finansal Oranlar</span><div class="sec-line"></div></div>
+    <div class="two-col"><div class="table-card"><div class="table-card-header">💰 Değerleme Oranları</div>${tableHtml(valuation)}</div><div class="table-card"><div class="table-card-header">🏦 Finansal Sağlık</div>${tableHtml(financial)}</div></div>
+
+    <div class="sec-header"><span class="sec-title">📋 Günlük Veriler</span><div class="sec-line"></div></div>
+    <div class="daily-grid">${[["Açılış",d.open,"Open"],["Kapanış",d.previous_close,"Önceki Kapanış"],["Gün Yükseği",d.day_high,"Day High"],["Gün Düşüğü",d.day_low,"Day Low"],["Ort. Hacim",r.avg_volume,"Avg Volume"]].map(([label,val,sub])=>`<div class="m-card"><div class="m-label">${label}</div><div class="m-value ${val==null?'na':''}">${val!=null?fmt(val):"—"}</div><div class="m-sub">${sub}</div></div>`).join("")}</div>
+  `;
+  document.addEventListener("click", outsidePickerClick);
 }
 
-// ══════════════════════════════════════════════════════
-//  PRICE CHART
-// ══════════════════════════════════════════════════════
+function showPickerDd(){ const dd=document.getElementById("stockPickerDd"); if(dd) dd.classList.remove("hidden"); }
+function filterPickerDd(q){ const dd=document.getElementById("stockPickerDd"); if(!dd) return; dd.classList.remove("hidden"); const qu=q.trim().toUpperCase(); dd.querySelectorAll(".picker-item").forEach(el=>{ const t=el.querySelector(".picker-t").textContent; const n=el.querySelector(".picker-n").textContent.toUpperCase(); el.style.display=(!qu||t.includes(qu)||n.includes(qu))?"":"none"; }); }
+function outsidePickerClick(e){ const wrap=document.getElementById("stockPickerWrap"); if(wrap && !wrap.contains(e.target)){ document.getElementById("stockPickerDd")?.classList.add("hidden"); } }
+function addStockComp(ticker){ if(state.stockComps.includes(ticker)) return; state.stockComps.push(ticker); const inp=document.getElementById("stockPickerInput"); if(inp) inp.value=""; document.getElementById("stockPickerDd")?.classList.add("hidden"); refreshStockTags(); loadNormChart(); }
+function removeStockComp(ticker){ state.stockComps = state.stockComps.filter(s=>s!==ticker); refreshStockTags(); loadNormChart(); }
+function refreshStockTags(){ const c=document.getElementById("stockCompTags"); if(!c) return; c.innerHTML=state.stockComps.map((sym,i)=>{ const col=STOCK_COMP_COLORS[i%STOCK_COMP_COLORS.length]; return `<span class="stock-tag" style="border-color:${col};color:${col}">${tickerShort(sym)}<button class="stock-tag-rm" onclick="removeStockComp('${sym}')">×</button></span>`; }).join(""); document.querySelectorAll(".picker-item").forEach(el=>{ const t = el.getAttribute("onclick")?.match(/'([^']+)'/)?.[1]; if(t) el.classList.toggle("already", state.stockComps.includes(t)); }); }
 
-async function loadPriceChart() {
-  const ticker = state.ticker;
-  if (!ticker || !state.currencies.length) return;
+function makeLegend(elId, items) { const el = document.getElementById(elId); if (!el) return; el.innerHTML = items.map(it => `<div class="legend-item"><div class="legend-dot" style="background:${it.color}"></div>${it.label}</div>`).join(""); }
+
+async function loadTryPriceChart() {
+  if (!state.ticker) return;
   try {
-    const curs = state.currencies.join(",");
-    const data = await apiFetch(`/price?ticker=${encodeURIComponent(ticker)}&period=${periodApi(state.period)}&currencies=${encodeURIComponent(curs)}`);
-    renderPriceChart(data);
-  } catch(e) {
-    showToast("Fiyat grafiği yüklenemedi: "+e.message, true);
-  }
+    const data = await apiFetch(`/price?ticker=${encodeURIComponent(state.ticker)}&period=${periodApi(state.period)}&currencies=TRY`);
+    renderTryChart(data.TRY || []);
+  } catch (e) { showToast("TRY grafiği yüklenemedi: " + e.message, true); }
 }
 
-function renderPriceChart(data) {
-  const canvas = document.getElementById("priceChart");
+function renderTryChart(points) {
+  const canvas = document.getElementById("tryPriceChart");
   if (!canvas) return;
-  if (state.priceChart) { state.priceChart.destroy(); state.priceChart = null; }
-
-  const hasTRY = !!(data.TRY?.length);
-  const hasUSD = !!(data.USD?.length);
-  const both   = hasTRY && hasUSD;
-  const datasets=[], legendItems=[];
-
-  if (hasTRY) {
-    const pts = data.TRY.filter(p=>p.c!=null);
-    datasets.push({
-      label: tickerShort(state.ticker)+" (₺ TL)",
-      data: pts.map(p=>({x:p.t,y:p.c})),
-      borderColor:"#22c55e",
-      backgroundColor: both?"transparent":"rgba(34,197,94,.06)",
-      borderWidth:2, pointRadius:0, tension:.35, fill:!both, yAxisID:"yTRY",
-    });
-    legendItems.push({ label:tickerShort(state.ticker)+" (₺ TL)", color:"#22c55e" });
-  }
-  if (hasUSD) {
-    const pts = data.USD.filter(p=>p.c!=null);
-    datasets.push({
-      label: tickerShort(state.ticker)+" ($ USD)",
-      data: pts.map(p=>({x:p.t,y:p.c})),
-      borderColor:"#3b82f6",
-      backgroundColor: both?"transparent":"rgba(59,130,246,.06)",
-      borderWidth:2, pointRadius:0, tension:.35, fill:!both, yAxisID: both?"yUSD":"yTRY",
-    });
-    legendItems.push({ label:tickerShort(state.ticker)+" ($ USD)", color:"#3b82f6" });
-  }
-
+  if (state.tryChart) state.tryChart.destroy();
   const gc = chartGridColor(), tc = chartTickColor(), tt = chartTooltipBg();
-  const scales = {
-    x:{ type:"time", time:{tooltipFormat:"dd MMM yyyy HH:mm"}, grid:{color:gc}, ticks:{color:tc,maxTicksLimit:8,font:{family:"'JetBrains Mono',monospace",size:11}} },
-    yTRY:{
-      position:"left", grid:{color:gc},
-      ticks:{color:both?"#22c55e":tc, font:{family:"'JetBrains Mono',monospace",size:11}, callback:v=>fmt(v,2)},
-      title:{display:both, text:"₺ TL", color:"#22c55e", font:{size:11}},
-    },
-  };
-  if (both) {
-    scales.yUSD={
-      position:"right", grid:{drawOnChartArea:false},
-      ticks:{color:"#3b82f6", font:{family:"'JetBrains Mono',monospace",size:11}, callback:v=>"$"+fmt(v,3)},
-      title:{display:true, text:"$ USD", color:"#3b82f6", font:{size:11}},
-    };
-  }
-
-  state.priceChart = new Chart(canvas.getContext("2d"),{
-    type:"line", data:{datasets},
-    options:{
-      responsive:true, maintainAspectRatio:false,
-      interaction:{mode:"x",intersect:false},
-      scales,
-      plugins:{
-        legend:{display:false},
-        tooltip:{
-          backgroundColor:tt, borderColor:isDark()?"rgba(255,255,255,.1)":"rgba(0,0,0,.08)", borderWidth:1,
-          titleColor:tc, bodyColor:isDark()?"#f0f2f8":"#0f1117", padding:12,
-          callbacks:{
-            label:ctx=>{
-              const isTRY = ctx.dataset.yAxisID==="yTRY" && ctx.dataset.label.includes("₺");
-              return ` ${ctx.dataset.label}: ${isTRY?"₺":"$"}${fmt(ctx.parsed.y,2)}`;
-            }
-          },
-        },
-      },
-    },
+  state.tryChart = new Chart(canvas.getContext("2d"), {
+    type: "line",
+    data: { datasets: [{ label: tickerShort(state.ticker) + " (₺)", data: points.filter(p=>p.c!=null).map(p=>({x:p.t,y:p.c})), borderColor: "#22c55e", backgroundColor: "rgba(34,197,94,.06)", borderWidth: 2.2, pointRadius: 0, fill: true, tension: .35 }] },
+    options: { responsive: true, maintainAspectRatio: false, interaction:{mode:"x",intersect:false}, scales: { x:{type:"time",grid:{color:gc},ticks:{color:tc,maxTicksLimit:8,font:{family:"'JetBrains Mono',monospace",size:11}}}, y:{grid:{color:gc},ticks:{color:tc,font:{family:"'JetBrains Mono',monospace",size:11},callback:v=>"₺"+fmt(v,2)}} }, plugins:{legend:{display:false}, tooltip:{backgroundColor:tt,borderColor:isDark()?"rgba(255,255,255,.1)":"rgba(0,0,0,.08)",borderWidth:1,titleColor:tc,bodyColor:isDark()?"#f0f2f8":"#0f1117",padding:12,callbacks:{label:ctx=>` ${ctx.dataset.label}: ₺${fmt(ctx.parsed.y,2)}`}}} }
   });
-
-  const leg = document.getElementById("priceLegend");
-  if (leg) leg.innerHTML = legendItems.map(it=>`
-    <div class="legend-item">
-      <div class="legend-dot" style="background:${it.color}"></div>${it.label}
-    </div>`).join("");
+  makeLegend("tryLegend", [{label: tickerShort(state.ticker) + " (₺ TL)", color: "#22c55e"}]);
 }
 
-// ══════════════════════════════════════════════════════
-//  NORM CHART
-// ══════════════════════════════════════════════════════
+async function loadUsdChart() {
+  if (!state.ticker) return;
+  try {
+    const [priceData, usdCompData] = await Promise.all([
+      apiFetch(`/price?ticker=${encodeURIComponent(state.ticker)}&period=${periodApi(state.period)}&currencies=USD`),
+      apiFetch(`/usd-chart?ticker=${encodeURIComponent(state.ticker)}&period=${periodApi(state.period)}&comparisons=${encodeURIComponent(state.usdComparisons.join(','))}`),
+    ]);
+    renderUsdChart(priceData.USD || [], usdCompData || {});
+  } catch (e) { showToast("USD grafiği yüklenemedi: " + e.message, true); }
+}
+
+function renderUsdChart(usdPoints, usdCompData) {
+  const canvas = document.getElementById("usdPriceChart");
+  if (!canvas) return;
+  if (state.usdChart) state.usdChart.destroy();
+  const datasets = [];
+  const legends = [];
+  const mainNorm = (usdCompData && usdCompData[state.ticker]) ? usdCompData[state.ticker] : [];
+  datasets.push({ label: tickerShort(state.ticker) + " ($ USD)", data: usdPoints.filter(p=>p.c!=null).map(p=>({x:p.t,y:p.c})), borderColor: "#3b82f6", backgroundColor: "transparent", borderWidth: 2.4, pointRadius: 0, tension: .35, yAxisID: "yUsd" });
+  legends.push({ label: tickerShort(state.ticker) + " ($ USD)", color: "#3b82f6" });
+  for (const [label, cfg] of Object.entries(US_COMPARISON_ASSETS)) {
+    if (!state.usdComparisons.includes(label) || !usdCompData[label]) continue;
+    datasets.push({ label, data: usdCompData[label].filter(p=>p.n!=null).map(p=>({x:p.t,y:p.n})), borderColor: cfg.color, backgroundColor: "transparent", borderDash: [5,3], borderWidth: 1.8, pointRadius: 0, tension: .35, yAxisID: "yNorm" });
+    legends.push({ label: label + " (Baz100)", color: cfg.color });
+  }
+  if (mainNorm.length) {
+    datasets.push({ label: tickerShort(state.ticker) + " (Baz100)", data: mainNorm.filter(p=>p.n!=null).map(p=>({x:p.t,y:p.n})), borderColor: "#94a3b8", backgroundColor: "transparent", borderDash: [2,2], borderWidth: 1.4, pointRadius: 0, tension: .35, yAxisID: "yNorm" });
+    legends.push({ label: tickerShort(state.ticker) + " (Baz100)", color: "#94a3b8" });
+  }
+  const gc = chartGridColor(), tc = chartTickColor(), tt = chartTooltipBg();
+  state.usdChart = new Chart(canvas.getContext("2d"), {
+    type: "line",
+    data: { datasets },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      interaction:{mode:"index",intersect:false},
+      scales: {
+        x:{type:"time",grid:{color:gc},ticks:{color:tc,maxTicksLimit:8,font:{family:"'JetBrains Mono',monospace",size:11}}},
+        yUsd:{position:"left",grid:{color:gc},ticks:{color:"#3b82f6",font:{family:"'JetBrains Mono',monospace",size:11},callback:v=>"$"+fmt(v,3)},title:{display:true,text:"USD",color:"#3b82f6",font:{size:10}}},
+        yNorm:{position:"right",grid:{drawOnChartArea:false},ticks:{color:tc,font:{family:"'JetBrains Mono',monospace",size:11},callback:v=>fmt(v,1)},title:{display:true,text:"Baz = 100",color:tc,font:{size:10}}}
+      },
+      plugins:{legend:{display:false},tooltip:{backgroundColor:tt,borderColor:isDark()?"rgba(255,255,255,.1)":"rgba(0,0,0,.08)",borderWidth:1,titleColor:tc,bodyColor:isDark()?"#f0f2f8":"#0f1117",padding:12,callbacks:{label:ctx=>ctx.dataset.yAxisID==="yUsd"?` ${ctx.dataset.label}: $${fmt(ctx.parsed.y,3)}`:` ${ctx.dataset.label}: ${fmt(ctx.parsed.y,2)}`}}}
+    }
+  });
+  makeLegend("usdLegend", legends);
+}
 
 async function loadNormChart() {
-  const ticker = state.ticker;
-  if (!ticker) return;
+  if (!state.ticker) return;
   try {
-    const data = await apiFetch(
-      `/chart?ticker=${encodeURIComponent(ticker)}&period=${periodApi(state.period)}`+
-      `&comparisons=${encodeURIComponent(state.comparisons.join(","))}`+
-      `&stocks=${encodeURIComponent(state.stockComps.join(","))}`
-    );
+    const data = await apiFetch(`/chart?ticker=${encodeURIComponent(state.ticker)}&period=${periodApi(state.period)}&comparisons=${encodeURIComponent(state.comparisons.join(','))}&stocks=${encodeURIComponent(state.stockComps.join(','))}`);
     renderNormChart(data);
-  } catch(e) {
-    showToast("Karşılaştırma grafiği yüklenemedi: "+e.message, true);
-  }
+  } catch (e) { showToast("Karşılaştırma grafiği yüklenemedi: " + e.message, true); }
 }
 
 function renderNormChart(data) {
   const canvas = document.getElementById("normChart");
   if (!canvas) return;
-  if (state.normChart) { state.normChart.destroy(); state.normChart = null; }
-
-  const datasets=[], legendItems=[];
-  const stockKey = state.ticker;
+  if (state.normChart) state.normChart.destroy();
+  const datasets = [], legendItems = [];
   let colorIdx = 0;
-
-  // Main stock
-  if (data[stockKey]) {
-    const pts = data[stockKey].filter(p=>p.n!=null);
-    const first=data[stockKey][0]?.c, last=data[stockKey][data[stockKey].length-1]?.c;
-    const isUp = (last||0)>=(first||0);
-    const col  = isUp?"#22c55e":"#ef4444";
-    datasets.push({
-      label:tickerShort(stockKey), data:pts.map(p=>({x:p.t,y:p.n})),
-      borderColor:col, backgroundColor:isUp?"rgba(34,197,94,.05)":"rgba(239,68,68,.05)",
-      borderWidth:2.5, pointRadius:0, tension:.35, fill:true, order:0,
-    });
-    legendItems.push({ label:tickerShort(stockKey), color:col });
+  if (data[state.ticker]) {
+    const pts = data[state.ticker].filter(p=>p.n!=null);
+    const first = data[state.ticker][0]?.c, last = data[state.ticker][data[state.ticker].length-1]?.c;
+    const col = (last || 0) >= (first || 0) ? "#22c55e" : "#ef4444";
+    datasets.push({ label: tickerShort(state.ticker), data: pts.map(p=>({x:p.t,y:p.n})), borderColor: col, backgroundColor: "rgba(34,197,94,.05)", borderWidth: 2.4, pointRadius: 0, tension: .35, fill: true });
+    legendItems.push({ label: tickerShort(state.ticker), color: col });
   }
-
-  // Benchmarks
-  for (const [label,cfg] of Object.entries(COMPARISON_ASSETS)) {
-    if (!state.comparisons.includes(label)||!data[label]) continue;
-    const pts = data[label].filter(p=>p.n!=null);
-    datasets.push({
-      label, data:pts.map(p=>({x:p.t,y:p.n})),
-      borderColor:cfg.color, backgroundColor:"transparent",
-      borderWidth:1.5, borderDash:[5,3], pointRadius:0, tension:.35, fill:false,
-    });
-    legendItems.push({ label, color:cfg.color });
+  for (const [label, cfg] of Object.entries(COMPARISON_ASSETS)) {
+    if (!state.comparisons.includes(label) || !data[label]) continue;
+    datasets.push({ label, data: data[label].filter(p=>p.n!=null).map(p=>({x:p.t,y:p.n})), borderColor: cfg.color, backgroundColor: "transparent", borderWidth: 1.6, borderDash: [5,3], pointRadius: 0, tension: .35 });
+    legendItems.push({ label, color: cfg.color });
   }
-
-  // Extra stocks
   for (const sym of state.stockComps) {
     if (!data[sym]) continue;
-    const pts = data[sym].filter(p=>p.n!=null);
-    const col = STOCK_COMP_COLORS[colorIdx++%STOCK_COMP_COLORS.length];
-    const info = POPULAR_STOCKS.find(s=>s.ticker===sym);
-    const label = info ? `${tickerShort(sym)} (${info.sector})` : tickerShort(sym);
-    datasets.push({
-      label, data:pts.map(p=>({x:p.t,y:p.n})),
-      borderColor:col, backgroundColor:"transparent",
-      borderWidth:2, borderDash:[3,2], pointRadius:0, tension:.35, fill:false,
-    });
-    legendItems.push({ label, color:col });
+    const col = STOCK_COMP_COLORS[colorIdx++ % STOCK_COMP_COLORS.length];
+    datasets.push({ label: tickerShort(sym), data: data[sym].filter(p=>p.n!=null).map(p=>({x:p.t,y:p.n})), borderColor: col, backgroundColor: "transparent", borderWidth: 2, borderDash: [3,2], pointRadius: 0, tension: .35 });
+    legendItems.push({ label: tickerShort(sym), color: col });
   }
-
-  const gc=chartGridColor(), tc=chartTickColor(), tt=chartTooltipBg();
-  state.normChart = new Chart(canvas.getContext("2d"),{
-    type:"line", data:{datasets},
-    options:{
-      responsive:true, maintainAspectRatio:false,
-      interaction:{mode:"index",intersect:false},
-      scales:{
-        x:{type:"time",time:{tooltipFormat:"dd MMM yyyy HH:mm"},grid:{color:gc},ticks:{color:tc,maxTicksLimit:8,font:{family:"'JetBrains Mono',monospace",size:11}}},
-        y:{grid:{color:gc},ticks:{color:tc,font:{family:"'JetBrains Mono',monospace",size:11},callback:v=>v.toFixed(1)},title:{display:true,text:"Baz = 100",color:tc,font:{size:10}}},
-      },
-      plugins:{
-        legend:{display:false},
-        tooltip:{
-          backgroundColor:tt, borderColor:isDark()?"rgba(255,255,255,.1)":"rgba(0,0,0,.08)", borderWidth:1,
-          titleColor:tc, bodyColor:isDark()?"#f0f2f8":"#0f1117", padding:12,
-          callbacks:{
-            label:ctx=>{
-              const v=ctx.parsed.y, d=v-100, s=d>=0?"+":"";
-              return ` ${ctx.dataset.label}: ${v.toFixed(2)} (${s}${d.toFixed(2)}%)`;
-            }
-          },
-        },
-      },
-    },
+  const gc = chartGridColor(), tc = chartTickColor(), tt = chartTooltipBg();
+  state.normChart = new Chart(canvas.getContext("2d"), {
+    type: "line",
+    data: { datasets },
+    options: { responsive:true, maintainAspectRatio:false, interaction:{mode:"index",intersect:false}, scales:{ x:{type:"time",grid:{color:gc},ticks:{color:tc,maxTicksLimit:8,font:{family:"'JetBrains Mono',monospace",size:11}}}, y:{grid:{color:gc},ticks:{color:tc,font:{family:"'JetBrains Mono',monospace",size:11},callback:v=>fmt(v,1)},title:{display:true,text:"Baz = 100",color:tc,font:{size:10}}} }, plugins:{legend:{display:false},tooltip:{backgroundColor:tt,borderColor:isDark()?"rgba(255,255,255,.1)":"rgba(0,0,0,.08)",borderWidth:1,titleColor:tc,bodyColor:isDark()?"#f0f2f8":"#0f1117",padding:12,callbacks:{label:ctx=>` ${ctx.dataset.label}: ${fmt(ctx.parsed.y,2)}`}}} }
   });
-
-  const leg = document.getElementById("normLegend");
-  if (leg) leg.innerHTML = legendItems.map(it=>`
-    <div class="legend-item">
-      <div class="legend-dot" style="background:${it.color}"></div>${it.label}
-    </div>`).join("");
+  makeLegend("normLegend", legendItems);
 }
 
-// ══════════════════════════════════════════════════════
-//  CONTROLS
-// ══════════════════════════════════════════════════════
+async function loadStandings() {
+  try {
+    const data = await apiFetch(`/standings?period=${encodeURIComponent(periodApi(state.period))}&view=${encodeURIComponent(state.standingsView)}`);
+    state.standingsData = data;
+    renderStandings();
+  } catch (e) {
+    const wrap = document.getElementById("standingsWrap");
+    if (wrap) wrap.innerHTML = `<div class="empty-note">Sıralama yüklenemedi: ${e.message}</div>`;
+  }
+}
+
+function renderStandings() {
+  const meta = document.getElementById("standingsMeta");
+  const wrap = document.getElementById("standingsWrap");
+  if (!meta || !wrap || !state.standingsData) return;
+  const rows = state.standingsData.rows || [];
+  meta.textContent = `${state.period} dönemine göre ${state.standingsData.count || rows.length} hisse tarandı`;
+  if (!rows.length) {
+    wrap.innerHTML = `<div class="empty-note">Bu dönem için yeterli veri bulunamadı.</div>`;
+    return;
+  }
+  wrap.innerHTML = `<table class="standings-table"><thead><tr><th>#</th><th>Ticker</th><th>Şirket</th><th>Başlangıç</th><th>Bitiş</th><th>% Değişim</th></tr></thead><tbody>${rows.map((row, idx)=>`<tr><td class="rank">${idx+1}</td><td class="num">${tickerShort(row.ticker)}</td><td>${row.name}</td><td class="num">₺${fmt(row.start_price,2)}</td><td class="num">₺${fmt(row.end_price,2)}</td><td class="num ${row.change_pct >= 0 ? 'standings-pos' : 'standings-neg'}">${fmtPct(row.change_pct)}</td></tr>`).join("")}</tbody></table>`;
+}
 
 function setPeriod(p) {
   state.period = p;
-  document.querySelectorAll(".period-btn").forEach(btn=>
-    btn.classList.toggle("active", btn.textContent===p)
-  );
-  loadPriceChart();
-  loadNormChart();
-}
-
-function toggleCurrency(cur) {
-  if (state.currencies.includes(cur)) {
-    if (state.currencies.length===1) return;
-    state.currencies = state.currencies.filter(c=>c!==cur);
-  } else {
-    state.currencies.push(cur);
-  }
-  document.querySelectorAll(".cur-btn").forEach(btn=>{
-    const isTRY = btn.textContent.includes("TL");
-    btn.className = "cur-btn"+(isTRY
-      ? (state.currencies.includes("TRY")?" active-try":"")
-      : (state.currencies.includes("USD")?" active-usd":""));
+  document.querySelectorAll(".period-btn").forEach(btn => {
+    const text = btn.textContent.trim();
+    if (["Top 10 Yükselenler", "Top 10 Düşenler", "Tümü"].includes(text)) return;
+    btn.classList.toggle("active", text === p);
   });
-  loadPriceChart();
-}
-
-function toggleCompare(label) {
-  state.comparisons = state.comparisons.includes(label)
-    ? state.comparisons.filter(c=>c!==label)
-    : [...state.comparisons, label];
-  document.querySelectorAll(".chip").forEach(el=>
-    el.classList.toggle("active", state.comparisons.includes(el.dataset.label))
-  );
+  loadTryPriceChart();
+  loadUsdChart();
   loadNormChart();
+  loadStandings();
 }
-
-// ══════════════════════════════════════════════════════
-//  INIT
-// ══════════════════════════════════════════════════════
+function setStandingsView(v) { state.standingsView = v; renderDashboard(state.stockData); loadTryPriceChart(); loadUsdChart(); loadNormChart(); loadStandings(); }
+function toggleCompare(label) { state.comparisons = state.comparisons.includes(label) ? state.comparisons.filter(c=>c!==label) : [...state.comparisons, label]; document.querySelectorAll("[data-label]").forEach(el=>el.classList.toggle("active", state.comparisons.includes(el.dataset.label))); loadNormChart(); }
+function toggleUsdCompare(label) { state.usdComparisons = state.usdComparisons.includes(label) ? state.usdComparisons.filter(c=>c!==label) : [...state.usdComparisons, label]; document.querySelectorAll("[data-usd-label]").forEach(el=>el.classList.toggle("active", state.usdComparisons.includes(el.dataset.usdLabel))); loadUsdChart(); }
 
 renderStockList();
 </script>
+
 </body>
 </html>
