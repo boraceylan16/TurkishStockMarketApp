@@ -12,7 +12,7 @@ Optimized version:
 API compatibility is preserved for existing endpoints.
 """
 
-from flask import Flask, jsonify, request
+from flask import Flask, jsonify, request, render_template
 from flask_cors import CORS
 import os
 import sqlite3
@@ -1042,6 +1042,9 @@ def start_background_sync() -> None:
     thread = threading.Thread(target=worker, daemon=True)
     thread.start()
 
+@app.route("/")
+def home():
+    return render_template("index.html")
 
 @app.route("/api/stocks/popular")
 def popular_stocks():
@@ -1304,4 +1307,4 @@ init_db()
 start_background_sync()
 
 if __name__ == "__main__":
-    app.run(debug=True, port=5000)
+    app.run(host="0.0.0.0", port=5000)
