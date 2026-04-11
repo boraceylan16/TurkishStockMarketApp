@@ -9,32 +9,36 @@ Optimized version:
 - Batched background sync for daily prices
 - Avoids double yfinance info fetch in /api/stock/<ticker>
 
-API compatibility is preserved for existing endpoints.
+Postgres / Supabase version:
+- Uses DATABASE_URL
+- Uses psycopg
+- Replaces SQLite-specific syntax with PostgreSQL upserts
 """
 
 from flask import Flask, jsonify, request, render_template
 from flask_cors import CORS
 import os
-import sqlite3
+import psycopg
+from psycopg.rows import dict_row
 import threading
 import time
 import traceback
-from datetime import datetime, timedelta, timezone
-from typing import Dict, List, Optional, Tuple, Any
+from datetime import date, datetime, timedelta, timezone
+from typing import Dict, List, Optional, Tuple
 
 import numpy as np
 import pandas as pd
 import yfinance as yf
 from deep_translator import GoogleTranslator
 
-
 app = Flask(__name__)
 CORS(app)
 
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-DB_PATH = os.environ.get("BORSA_DB_PATH", os.path.join(BASE_DIR, "borsa.sqlite3"))
+DATABASE_URL = os.environ.get("DATABASE_URL")
 BACKGROUND_SYNC_ENABLED = os.environ.get("BORSA_ENABLE_BACKGROUND_SYNC", "1") == "1"
-BACKGROUND_SYNC_INTERVAL_SECONDS = int(os.environ.get("BORSA_BACKGROUND_SYNC_SECONDS", str(60 * 60 * 12)))
+BACKGROUND_SYNC_INTERVAL_SECONDS = int(
+    os.environ.get("BORSA_BACKGROUND_SYNC_SECONDS", str(60 * 60 * 12))
+)
 
 COMPARISON_ASSETS = {
     "USD/TRY": "USDTRY=X",
@@ -74,89 +78,89 @@ PERIOD_MAP = {
 }
 
 POPULAR_BIST_STOCKS = [
-  {"ticker":"AEFES.IS","name":"Anadolu Efes","sector":"Tüketim"},
-  {"ticker":"AGHOL.IS","name":"Anadolu Grubu Holding","sector":"Holding"},
-  {"ticker":"AHGAZ.IS","name":"Ahlatcı Doğalgaz","sector":"Enerji"},
-  {"ticker":"AKBNK.IS","name":"Akbank","sector":"Bankacılık"},
-  {"ticker":"AKCNS.IS","name":"Akçansa","sector":"Çimento"},
-  {"ticker":"AKFGY.IS","name":"Akfen GYO","sector":"GYO"},
-  {"ticker":"AKSA.IS","name":"Aksa Akrilik","sector":"Kimya"},
-  {"ticker":"AKSEN.IS","name":"Aksa Enerji","sector":"Enerji"},
-  {"ticker":"ALARK.IS","name":"Alarko Holding","sector":"Holding"},
-  {"ticker":"ALBRK.IS","name":"Albaraka Türk","sector":"Bankacılık"},
-  {"ticker":"ALFAS.IS","name":"Alfa Solar Enerji","sector":"Enerji"},
-  {"ticker":"ARCLK.IS","name":"Arçelik","sector":"Tüketim"},
-  {"ticker":"ASELS.IS","name":"Aselsan","sector":"Savunma"},
-  {"ticker":"ASTOR.IS","name":"Astor Enerji","sector":"Enerji"},
-  {"ticker":"BIMAS.IS","name":"BİM","sector":"Perakende"},
-  {"ticker":"BOBET.IS","name":"Boğaziçi Beton","sector":"İnşaat"},
-  {"ticker":"BRSAN.IS","name":"Borusan Mannesmann","sector":"Sanayi"},
-  {"ticker":"BRYAT.IS","name":"Borusan Yatırım","sector":"Holding"},
-  {"ticker":"CCOLA.IS","name":"Coca Cola İçecek","sector":"Tüketim"},
-  {"ticker":"CIMSA.IS","name":"Çimsa","sector":"Çimento"},
-  {"ticker":"DOAS.IS","name":"Doğuş Otomotiv","sector":"Otomotiv"},
-  {"ticker":"DOHOL.IS","name":"Doğan Holding","sector":"Holding"},
-  {"ticker":"ECILC.IS","name":"Eczacıbaşı İlaç","sector":"Sağlık"},
-  {"ticker":"ECZYT.IS","name":"Eczacıbaşı Yatırım","sector":"Holding"},
-  {"ticker":"EGEEN.IS","name":"Ege Endüstri","sector":"Otomotiv"},
-  {"ticker":"EKGYO.IS","name":"Emlak Konut GYO","sector":"GYO"},
-  {"ticker":"ENJSA.IS","name":"Enerjisa Enerji","sector":"Enerji"},
-  {"ticker":"ENKAI.IS","name":"Enka İnşaat","sector":"İnşaat"},
-  {"ticker":"EREGL.IS","name":"Ereğli Demir Çelik","sector":"Endüstri"},
-  {"ticker":"EUPWR.IS","name":"Europower Enerji","sector":"Enerji"},
-  {"ticker":"FROTO.IS","name":"Ford Otosan","sector":"Otomotiv"},
-  {"ticker":"GARAN.IS","name":"Garanti BBVA","sector":"Bankacılık"},
-  {"ticker":"GESAN.IS","name":"Girişim Elektrik","sector":"Enerji"},
-  {"ticker":"GLYHO.IS","name":"Global Yatırım Holding","sector":"Holding"},
-  {"ticker":"GSDHO.IS","name":"GSD Holding","sector":"Holding"},
-  {"ticker":"GUBRF.IS","name":"Gübre Fabrikaları","sector":"Tarım"},
-  {"ticker":"HALKB.IS","name":"Halkbank","sector":"Bankacılık"},
-  {"ticker":"HEKTS.IS","name":"Hektaş","sector":"Tarım"},
-  {"ticker":"TRENJ.IS","name":"TR Doğal Enerji","sector":"Enerji"},
-  {"ticker":"ISCTR.IS","name":"İş Bankası C","sector":"Bankacılık"},
-  {"ticker":"ISDMR.IS","name":"İskenderun Demir Çelik","sector":"Endüstri"},
-  {"ticker":"ISGYO.IS","name":"İş GYO","sector":"GYO"},
-  {"ticker":"ISMEN.IS","name":"İş Yatırım","sector":"Finans"},
-  {"ticker":"KCAER.IS","name":"Kocaer Çelik","sector":"Sanayi"},
-  {"ticker":"KCHOL.IS","name":"Koç Holding","sector":"Holding"},
-  {"ticker":"KLSER.IS","name":"Kaleseramik","sector":"Sanayi"},
-  {"ticker":"KONTR.IS","name":"Kontrolmatik","sector":"Teknoloji"},
-  {"ticker":"KORDS.IS","name":"Kordsa","sector":"Sanayi"},
-  {"ticker":"KOZAA.IS","name":"Koza Anadolu","sector":"Madencilik"},
-  {"ticker":"KOZAL.IS","name":"Koza Altın","sector":"Madencilik"},
-  {"ticker":"KRDMD.IS","name":"Kardemir D","sector":"Endüstri"},
-  {"ticker":"MAVI.IS","name":"Mavi Giyim","sector":"Perakende"},
-  {"ticker":"MGROS.IS","name":"Migros","sector":"Perakende"},
-  {"ticker":"MIATK.IS","name":"Mia Teknoloji","sector":"Teknoloji"},
-  {"ticker":"ODAS.IS","name":"Odaş Elektrik","sector":"Enerji"},
-  {"ticker":"OTKAR.IS","name":"Otokar","sector":"Savunma"},
-  {"ticker":"OYAKC.IS","name":"Oyak Çimento","sector":"Çimento"},
-  {"ticker":"PETKM.IS","name":"Petkim","sector":"Petrokimya"},
-  {"ticker":"PGSUS.IS","name":"Pegasus","sector":"Ulaşım"},
-  {"ticker":"QUAGR.IS","name":"Qua Granite","sector":"İnşaat"},
-  {"ticker":"SAHOL.IS","name":"Sabancı Holding","sector":"Holding"},
-  {"ticker":"SASA.IS","name":"Sasa Polyester","sector":"Kimya"},
-  {"ticker":"SELEC.IS","name":"Selçuk Ecza Deposu","sector":"Sağlık"},
-  {"ticker":"SISE.IS","name":"Şişecam","sector":"Endüstri"},
-  {"ticker":"SKBNK.IS","name":"Şekerbank","sector":"Bankacılık"},
-  {"ticker":"SMRTG.IS","name":"Smart Güneş","sector":"Enerji"},
-  {"ticker":"SOKM.IS","name":"Şok Marketler","sector":"Perakende"},
-  {"ticker":"TAVHL.IS","name":"TAV Havalimanları","sector":"Ulaşım"},
-  {"ticker":"TCELL.IS","name":"Turkcell","sector":"Telekom"},
-  {"ticker":"THYAO.IS","name":"Türk Hava Yolları","sector":"Ulaşım"},
-  {"ticker":"TKFEN.IS","name":"Tekfen Holding","sector":"Holding"},
-  {"ticker":"TOASO.IS","name":"Tofaş","sector":"Otomotiv"},
-  {"ticker":"TSKB.IS","name":"TSKB","sector":"Bankacılık"},
-  {"ticker":"TTKOM.IS","name":"Türk Telekom","sector":"Telekom"},
-  {"ticker":"TTRAK.IS","name":"Türk Traktör","sector":"Otomotiv"},
-  {"ticker":"TUPRS.IS","name":"Tüpraş","sector":"Enerji"},
-  {"ticker":"ULKER.IS","name":"Ülker","sector":"Gıda"},
-  {"ticker":"VAKBN.IS","name":"Vakıfbank","sector":"Bankacılık"},
-  {"ticker":"VESBE.IS","name":"Vestel Beyaz Eşya","sector":"Sanayi"},
-  {"ticker":"VESTL.IS","name":"Vestel","sector":"Teknoloji"},
-  {"ticker":"YKBNK.IS","name":"Yapı Kredi","sector":"Bankacılık"},
-  {"ticker":"YYLGD.IS","name":"Yayla Agro","sector":"Gıda"},
-  {"ticker":"ZOREN.IS","name":"Zorlu Enerji","sector":"Enerji"}
+    {"ticker": "AEFES.IS", "name": "Anadolu Efes", "sector": "Tüketim"},
+    {"ticker": "AGHOL.IS", "name": "Anadolu Grubu Holding", "sector": "Holding"},
+    {"ticker": "AHGAZ.IS", "name": "Ahlatcı Doğalgaz", "sector": "Enerji"},
+    {"ticker": "AKBNK.IS", "name": "Akbank", "sector": "Bankacılık"},
+    {"ticker": "AKCNS.IS", "name": "Akçansa", "sector": "Çimento"},
+    {"ticker": "AKFGY.IS", "name": "Akfen GYO", "sector": "GYO"},
+    {"ticker": "AKSA.IS", "name": "Aksa Akrilik", "sector": "Kimya"},
+    {"ticker": "AKSEN.IS", "name": "Aksa Enerji", "sector": "Enerji"},
+    {"ticker": "ALARK.IS", "name": "Alarko Holding", "sector": "Holding"},
+    {"ticker": "ALBRK.IS", "name": "Albaraka Türk", "sector": "Bankacılık"},
+    {"ticker": "ALFAS.IS", "name": "Alfa Solar Enerji", "sector": "Enerji"},
+    {"ticker": "ARCLK.IS", "name": "Arçelik", "sector": "Tüketim"},
+    {"ticker": "ASELS.IS", "name": "Aselsan", "sector": "Savunma"},
+    {"ticker": "ASTOR.IS", "name": "Astor Enerji", "sector": "Enerji"},
+    {"ticker": "BIMAS.IS", "name": "BİM", "sector": "Perakende"},
+    {"ticker": "BOBET.IS", "name": "Boğaziçi Beton", "sector": "İnşaat"},
+    {"ticker": "BRSAN.IS", "name": "Borusan Mannesmann", "sector": "Sanayi"},
+    {"ticker": "BRYAT.IS", "name": "Borusan Yatırım", "sector": "Holding"},
+    {"ticker": "CCOLA.IS", "name": "Coca Cola İçecek", "sector": "Tüketim"},
+    {"ticker": "CIMSA.IS", "name": "Çimsa", "sector": "Çimento"},
+    {"ticker": "DOAS.IS", "name": "Doğuş Otomotiv", "sector": "Otomotiv"},
+    {"ticker": "DOHOL.IS", "name": "Doğan Holding", "sector": "Holding"},
+    {"ticker": "ECILC.IS", "name": "Eczacıbaşı İlaç", "sector": "Sağlık"},
+    {"ticker": "ECZYT.IS", "name": "Eczacıbaşı Yatırım", "sector": "Holding"},
+    {"ticker": "EGEEN.IS", "name": "Ege Endüstri", "sector": "Otomotiv"},
+    {"ticker": "EKGYO.IS", "name": "Emlak Konut GYO", "sector": "GYO"},
+    {"ticker": "ENJSA.IS", "name": "Enerjisa Enerji", "sector": "Enerji"},
+    {"ticker": "ENKAI.IS", "name": "Enka İnşaat", "sector": "İnşaat"},
+    {"ticker": "EREGL.IS", "name": "Ereğli Demir Çelik", "sector": "Endüstri"},
+    {"ticker": "EUPWR.IS", "name": "Europower Enerji", "sector": "Enerji"},
+    {"ticker": "FROTO.IS", "name": "Ford Otosan", "sector": "Otomotiv"},
+    {"ticker": "GARAN.IS", "name": "Garanti BBVA", "sector": "Bankacılık"},
+    {"ticker": "GESAN.IS", "name": "Girişim Elektrik", "sector": "Enerji"},
+    {"ticker": "GLYHO.IS", "name": "Global Yatırım Holding", "sector": "Holding"},
+    {"ticker": "GSDHO.IS", "name": "GSD Holding", "sector": "Holding"},
+    {"ticker": "GUBRF.IS", "name": "Gübre Fabrikaları", "sector": "Tarım"},
+    {"ticker": "HALKB.IS", "name": "Halkbank", "sector": "Bankacılık"},
+    {"ticker": "HEKTS.IS", "name": "Hektaş", "sector": "Tarım"},
+    {"ticker": "TRENJ.IS", "name": "TR Doğal Enerji", "sector": "Enerji"},
+    {"ticker": "ISCTR.IS", "name": "İş Bankası C", "sector": "Bankacılık"},
+    {"ticker": "ISDMR.IS", "name": "İskenderun Demir Çelik", "sector": "Endüstri"},
+    {"ticker": "ISGYO.IS", "name": "İş GYO", "sector": "GYO"},
+    {"ticker": "ISMEN.IS", "name": "İş Yatırım", "sector": "Finans"},
+    {"ticker": "KCAER.IS", "name": "Kocaer Çelik", "sector": "Sanayi"},
+    {"ticker": "KCHOL.IS", "name": "Koç Holding", "sector": "Holding"},
+    {"ticker": "KLSER.IS", "name": "Kaleseramik", "sector": "Sanayi"},
+    {"ticker": "KONTR.IS", "name": "Kontrolmatik", "sector": "Teknoloji"},
+    {"ticker": "KORDS.IS", "name": "Kordsa", "sector": "Sanayi"},
+    {"ticker": "KOZAA.IS", "name": "Koza Anadolu", "sector": "Madencilik"},
+    {"ticker": "KOZAL.IS", "name": "Koza Altın", "sector": "Madencilik"},
+    {"ticker": "KRDMD.IS", "name": "Kardemir D", "sector": "Endüstri"},
+    {"ticker": "MAVI.IS", "name": "Mavi Giyim", "sector": "Perakende"},
+    {"ticker": "MGROS.IS", "name": "Migros", "sector": "Perakende"},
+    {"ticker": "MIATK.IS", "name": "Mia Teknoloji", "sector": "Teknoloji"},
+    {"ticker": "ODAS.IS", "name": "Odaş Elektrik", "sector": "Enerji"},
+    {"ticker": "OTKAR.IS", "name": "Otokar", "sector": "Savunma"},
+    {"ticker": "OYAKC.IS", "name": "Oyak Çimento", "sector": "Çimento"},
+    {"ticker": "PETKM.IS", "name": "Petkim", "sector": "Petrokimya"},
+    {"ticker": "PGSUS.IS", "name": "Pegasus", "sector": "Ulaşım"},
+    {"ticker": "QUAGR.IS", "name": "Qua Granite", "sector": "İnşaat"},
+    {"ticker": "SAHOL.IS", "name": "Sabancı Holding", "sector": "Holding"},
+    {"ticker": "SASA.IS", "name": "Sasa Polyester", "sector": "Kimya"},
+    {"ticker": "SELEC.IS", "name": "Selçuk Ecza Deposu", "sector": "Sağlık"},
+    {"ticker": "SISE.IS", "name": "Şişecam", "sector": "Endüstri"},
+    {"ticker": "SKBNK.IS", "name": "Şekerbank", "sector": "Bankacılık"},
+    {"ticker": "SMRTG.IS", "name": "Smart Güneş", "sector": "Enerji"},
+    {"ticker": "SOKM.IS", "name": "Şok Marketler", "sector": "Perakende"},
+    {"ticker": "TAVHL.IS", "name": "TAV Havalimanları", "sector": "Ulaşım"},
+    {"ticker": "TCELL.IS", "name": "Turkcell", "sector": "Telekom"},
+    {"ticker": "THYAO.IS", "name": "Türk Hava Yolları", "sector": "Ulaşım"},
+    {"ticker": "TKFEN.IS", "name": "Tekfen Holding", "sector": "Holding"},
+    {"ticker": "TOASO.IS", "name": "Tofaş", "sector": "Otomotiv"},
+    {"ticker": "TSKB.IS", "name": "TSKB", "sector": "Bankacılık"},
+    {"ticker": "TTKOM.IS", "name": "Türk Telekom", "sector": "Telekom"},
+    {"ticker": "TTRAK.IS", "name": "Türk Traktör", "sector": "Otomotiv"},
+    {"ticker": "TUPRS.IS", "name": "Tüpraş", "sector": "Enerji"},
+    {"ticker": "ULKER.IS", "name": "Ülker", "sector": "Gıda"},
+    {"ticker": "VAKBN.IS", "name": "Vakıfbank", "sector": "Bankacılık"},
+    {"ticker": "VESBE.IS", "name": "Vestel Beyaz Eşya", "sector": "Sanayi"},
+    {"ticker": "VESTL.IS", "name": "Vestel", "sector": "Teknoloji"},
+    {"ticker": "YKBNK.IS", "name": "Yapı Kredi", "sector": "Bankacılık"},
+    {"ticker": "YYLGD.IS", "name": "Yayla Agro", "sector": "Gıda"},
+    {"ticker": "ZOREN.IS", "name": "Zorlu Enerji", "sector": "Enerji"},
 ]
 
 translator = GoogleTranslator(source="en", target="tr")
@@ -169,7 +173,6 @@ RATIO_FIELDS = [
     "enterprise_value", "shares_outstanding", "week52_high", "week52_low", "beta", "avg_volume",
 ]
 
-# Short TTL caches
 QUOTE_CACHE_TTL_SECONDS = int(os.environ.get("BORSA_QUOTE_CACHE_TTL_SECONDS", "45"))
 STANDINGS_CACHE_TTL_SECONDS = int(os.environ.get("BORSA_STANDINGS_CACHE_TTL_SECONDS", "180"))
 
@@ -178,95 +181,98 @@ _standings_cache: Dict[str, Tuple[float, dict]] = {}
 _cache_lock = threading.Lock()
 
 
-def get_conn() -> sqlite3.Connection:
-    conn = sqlite3.connect(
-        DB_PATH,
-        detect_types=sqlite3.PARSE_DECLTYPES | sqlite3.PARSE_COLNAMES,
-        check_same_thread=False,
-    )
-    conn.row_factory = sqlite3.Row
-    conn.execute("PRAGMA journal_mode=WAL;")
-    conn.execute("PRAGMA synchronous=NORMAL;")
-    return conn
+def get_conn():
+    if not DATABASE_URL:
+        raise RuntimeError("DATABASE_URL is not set")
+    return psycopg.connect(DATABASE_URL, row_factory=dict_row)
 
 
 def init_db() -> None:
-    os.makedirs(os.path.dirname(DB_PATH) or ".", exist_ok=True)
-    conn = get_conn()
-    cur = conn.cursor()
-    cur.executescript(
-        """
-        CREATE TABLE IF NOT EXISTS metadata (
-            ticker TEXT PRIMARY KEY,
-            company_name TEXT,
-            sector TEXT,
-            industry TEXT,
-            currency TEXT,
-            exchange TEXT,
-            website TEXT,
-            description TEXT,
-            updated_at TEXT NOT NULL
-        );
+    with get_conn() as conn:
+        with conn.cursor() as cur:
+            cur.execute("""
+                CREATE TABLE IF NOT EXISTS metadata (
+                    ticker TEXT PRIMARY KEY,
+                    company_name TEXT,
+                    sector TEXT,
+                    industry TEXT,
+                    currency TEXT,
+                    exchange TEXT,
+                    website TEXT,
+                    description TEXT,
+                    updated_at TIMESTAMPTZ NOT NULL
+                );
+            """)
 
-        CREATE TABLE IF NOT EXISTS price_history (
-            ticker TEXT NOT NULL,
-            datetime TEXT NOT NULL,
-            interval TEXT NOT NULL DEFAULT '1d',
-            open REAL,
-            high REAL,
-            low REAL,
-            close REAL,
-            volume REAL,
-            currency TEXT,
-            source TEXT DEFAULT 'yfinance',
-            created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
-            PRIMARY KEY (ticker, datetime, interval)
-        );
+            cur.execute("""
+                CREATE TABLE IF NOT EXISTS price_history (
+                    ticker TEXT NOT NULL,
+                    datetime TIMESTAMPTZ NOT NULL,
+                    interval TEXT NOT NULL DEFAULT '1d',
+                    open DOUBLE PRECISION,
+                    high DOUBLE PRECISION,
+                    low DOUBLE PRECISION,
+                    close DOUBLE PRECISION,
+                    volume DOUBLE PRECISION,
+                    currency TEXT,
+                    source TEXT DEFAULT 'yfinance',
+                    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                    PRIMARY KEY (ticker, datetime, interval)
+                );
+            """)
 
-        CREATE INDEX IF NOT EXISTS idx_price_ticker_datetime ON price_history (ticker, datetime);
-        CREATE INDEX IF NOT EXISTS idx_price_interval ON price_history (interval, ticker, datetime);
+            cur.execute("""
+                CREATE INDEX IF NOT EXISTS idx_price_ticker_datetime
+                ON price_history (ticker, datetime);
+            """)
 
-        CREATE TABLE IF NOT EXISTS financial_ratios (
-            ticker TEXT NOT NULL,
-            snapshot_date TEXT NOT NULL,
-            pe_ratio REAL,
-            forward_pe REAL,
-            pb_ratio REAL,
-            ps_ratio REAL,
-            ev_ebitda REAL,
-            ev_revenue REAL,
-            peg_ratio REAL,
-            gross_margin REAL,
-            operating_margin REAL,
-            net_margin REAL,
-            roe REAL,
-            roa REAL,
-            debt_to_equity REAL,
-            current_ratio REAL,
-            quick_ratio REAL,
-            dividend_yield REAL,
-            payout_ratio REAL,
-            earnings_growth REAL,
-            revenue_growth REAL,
-            eps_trailing REAL,
-            eps_forward REAL,
-            book_value REAL,
-            market_cap REAL,
-            enterprise_value REAL,
-            shares_outstanding REAL,
-            week52_high REAL,
-            week52_low REAL,
-            beta REAL,
-            avg_volume REAL,
-            created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
-            PRIMARY KEY (ticker, snapshot_date)
-        );
+            cur.execute("""
+                CREATE INDEX IF NOT EXISTS idx_price_interval
+                ON price_history (interval, ticker, datetime);
+            """)
 
-        CREATE INDEX IF NOT EXISTS idx_ratios_ticker_snapshot ON financial_ratios (ticker, snapshot_date DESC);
-        """
-    )
-    conn.commit()
-    conn.close()
+            cur.execute("""
+                CREATE TABLE IF NOT EXISTS financial_ratios (
+                    ticker TEXT NOT NULL,
+                    snapshot_date DATE NOT NULL,
+                    pe_ratio DOUBLE PRECISION,
+                    forward_pe DOUBLE PRECISION,
+                    pb_ratio DOUBLE PRECISION,
+                    ps_ratio DOUBLE PRECISION,
+                    ev_ebitda DOUBLE PRECISION,
+                    ev_revenue DOUBLE PRECISION,
+                    peg_ratio DOUBLE PRECISION,
+                    gross_margin DOUBLE PRECISION,
+                    operating_margin DOUBLE PRECISION,
+                    net_margin DOUBLE PRECISION,
+                    roe DOUBLE PRECISION,
+                    roa DOUBLE PRECISION,
+                    debt_to_equity DOUBLE PRECISION,
+                    current_ratio DOUBLE PRECISION,
+                    quick_ratio DOUBLE PRECISION,
+                    dividend_yield DOUBLE PRECISION,
+                    payout_ratio DOUBLE PRECISION,
+                    earnings_growth DOUBLE PRECISION,
+                    revenue_growth DOUBLE PRECISION,
+                    eps_trailing DOUBLE PRECISION,
+                    eps_forward DOUBLE PRECISION,
+                    book_value DOUBLE PRECISION,
+                    market_cap DOUBLE PRECISION,
+                    enterprise_value DOUBLE PRECISION,
+                    shares_outstanding DOUBLE PRECISION,
+                    week52_high DOUBLE PRECISION,
+                    week52_low DOUBLE PRECISION,
+                    beta DOUBLE PRECISION,
+                    avg_volume DOUBLE PRECISION,
+                    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                    PRIMARY KEY (ticker, snapshot_date)
+                );
+            """)
+
+            cur.execute("""
+                CREATE INDEX IF NOT EXISTS idx_ratios_ticker_snapshot
+                ON financial_ratios (ticker, snapshot_date DESC);
+            """)
 
 
 def utcnow() -> datetime:
@@ -386,10 +392,12 @@ def build_ratios(info: dict) -> dict:
         "beta": info.get("beta"),
         "avg_volume": info.get("averageVolume"),
     }
+
     pct_keys = {
         "gross_margin", "operating_margin", "net_margin", "roe", "roa",
         "dividend_yield", "payout_ratio", "earnings_growth", "revenue_growth",
     }
+
     result = {}
     for key, value in raw.items():
         sv = safe_val(value, 4)
@@ -445,62 +453,113 @@ def ohlcv_to_list(df: pd.DataFrame) -> list:
 
 
 def persist_metadata(ticker: str, info: dict) -> None:
-    conn = get_conn()
-    conn.execute(
-        """
-        INSERT INTO metadata (
-            ticker, company_name, sector, industry, currency, exchange, website, description, updated_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-        ON CONFLICT(ticker) DO UPDATE SET
-            company_name=excluded.company_name,
-            sector=excluded.sector,
-            industry=excluded.industry,
-            currency=excluded.currency,
-            exchange=excluded.exchange,
-            website=excluded.website,
-            description=excluded.description,
-            updated_at=excluded.updated_at
-        """,
-        (
-            ticker,
-            info.get("longName") or info.get("shortName") or ticker,
-            translate_text(info.get("sector")),
-            translate_text(info.get("industry")),
-            info.get("currency", "TRY"),
-            info.get("exchange"),
-            info.get("website"),
-            translate_text(info.get("longBusinessSummary")),
-            iso_dt(utcnow()),
-        ),
-    )
-    conn.commit()
-    conn.close()
+    with get_conn() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                INSERT INTO metadata (
+                    ticker, company_name, sector, industry, currency, exchange, website, description, updated_at
+                )
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+                ON CONFLICT (ticker) DO UPDATE SET
+                    company_name = EXCLUDED.company_name,
+                    sector = EXCLUDED.sector,
+                    industry = EXCLUDED.industry,
+                    currency = EXCLUDED.currency,
+                    exchange = EXCLUDED.exchange,
+                    website = EXCLUDED.website,
+                    description = EXCLUDED.description,
+                    updated_at = EXCLUDED.updated_at
+                """,
+                (
+                    ticker,
+                    info.get("longName") or info.get("shortName") or ticker,
+                    translate_text(info.get("sector")),
+                    translate_text(info.get("industry")),
+                    info.get("currency", "TRY"),
+                    info.get("exchange"),
+                    info.get("website"),
+                    translate_text(info.get("longBusinessSummary")),
+                    utcnow(),
+                ),
+            )
 
 
 def persist_ratios_snapshot(ticker: str, ratios: dict, snapshot_date: Optional[str] = None) -> None:
     snapshot_date = snapshot_date or utcnow().date().isoformat()
-    columns = ["ticker", "snapshot_date"] + RATIO_FIELDS
-    placeholders = ",".join(["?"] * len(columns))
     values = [ticker, snapshot_date] + [ratios.get(col) for col in RATIO_FIELDS]
-    conn = get_conn()
-    conn.execute(
-        f"INSERT OR REPLACE INTO financial_ratios ({','.join(columns)}) VALUES ({placeholders})",
-        values,
-    )
-    conn.commit()
-    conn.close()
+
+    with get_conn() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                INSERT INTO financial_ratios (
+                    ticker, snapshot_date,
+                    pe_ratio, forward_pe, pb_ratio, ps_ratio, ev_ebitda, ev_revenue, peg_ratio,
+                    gross_margin, operating_margin, net_margin, roe, roa, debt_to_equity,
+                    current_ratio, quick_ratio, dividend_yield, payout_ratio, earnings_growth,
+                    revenue_growth, eps_trailing, eps_forward, book_value, market_cap,
+                    enterprise_value, shares_outstanding, week52_high, week52_low, beta, avg_volume
+                )
+                VALUES (
+                    %s, %s,
+                    %s, %s, %s, %s, %s, %s, %s,
+                    %s, %s, %s, %s, %s, %s,
+                    %s, %s, %s, %s, %s,
+                    %s, %s, %s, %s, %s,
+                    %s, %s, %s, %s, %s, %s
+                )
+                ON CONFLICT (ticker, snapshot_date) DO UPDATE SET
+                    pe_ratio = EXCLUDED.pe_ratio,
+                    forward_pe = EXCLUDED.forward_pe,
+                    pb_ratio = EXCLUDED.pb_ratio,
+                    ps_ratio = EXCLUDED.ps_ratio,
+                    ev_ebitda = EXCLUDED.ev_ebitda,
+                    ev_revenue = EXCLUDED.ev_revenue,
+                    peg_ratio = EXCLUDED.peg_ratio,
+                    gross_margin = EXCLUDED.gross_margin,
+                    operating_margin = EXCLUDED.operating_margin,
+                    net_margin = EXCLUDED.net_margin,
+                    roe = EXCLUDED.roe,
+                    roa = EXCLUDED.roa,
+                    debt_to_equity = EXCLUDED.debt_to_equity,
+                    current_ratio = EXCLUDED.current_ratio,
+                    quick_ratio = EXCLUDED.quick_ratio,
+                    dividend_yield = EXCLUDED.dividend_yield,
+                    payout_ratio = EXCLUDED.payout_ratio,
+                    earnings_growth = EXCLUDED.earnings_growth,
+                    revenue_growth = EXCLUDED.revenue_growth,
+                    eps_trailing = EXCLUDED.eps_trailing,
+                    eps_forward = EXCLUDED.eps_forward,
+                    book_value = EXCLUDED.book_value,
+                    market_cap = EXCLUDED.market_cap,
+                    enterprise_value = EXCLUDED.enterprise_value,
+                    shares_outstanding = EXCLUDED.shares_outstanding,
+                    week52_high = EXCLUDED.week52_high,
+                    week52_low = EXCLUDED.week52_low,
+                    beta = EXCLUDED.beta,
+                    avg_volume = EXCLUDED.avg_volume
+                """,
+                values,
+            )
 
 
 def persist_price_history(ticker: str, df: pd.DataFrame, interval: str = "1d", currency: str = "TRY") -> None:
     if df is None or df.empty:
         return
+
     df = normalize_yf_df(df)
     records = []
+
     for ts, row in df.iterrows():
+        ts_value = pd.Timestamp(ts).to_pydatetime()
+        if ts_value.tzinfo is None:
+            ts_value = ts_value.replace(tzinfo=timezone.utc)
+
         records.append(
             (
                 ticker,
-                iso_dt(pd.Timestamp(ts).to_pydatetime().replace(tzinfo=timezone.utc)),
+                ts_value,
                 interval,
                 safe_val(row.get("Open"), 4),
                 safe_val(row.get("High"), 4),
@@ -510,41 +569,57 @@ def persist_price_history(ticker: str, df: pd.DataFrame, interval: str = "1d", c
                 currency,
             )
         )
-    conn = get_conn()
-    conn.executemany(
-        """
-        INSERT OR REPLACE INTO price_history (
-            ticker, datetime, interval, open, high, low, close, volume, currency
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-        """,
-        records,
-    )
-    conn.commit()
-    conn.close()
+
+    with get_conn() as conn:
+        with conn.cursor() as cur:
+            cur.executemany(
+                """
+                INSERT INTO price_history (
+                    ticker, datetime, interval, open, high, low, close, volume, currency
+                )
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+                ON CONFLICT (ticker, datetime, interval) DO UPDATE SET
+                    open = EXCLUDED.open,
+                    high = EXCLUDED.high,
+                    low = EXCLUDED.low,
+                    close = EXCLUDED.close,
+                    volume = EXCLUDED.volume,
+                    currency = EXCLUDED.currency
+                """,
+                records,
+            )
 
 
 def get_latest_price_timestamp(ticker: str, interval: str = "1d") -> Optional[datetime]:
-    conn = get_conn()
-    row = conn.execute(
-        "SELECT MAX(datetime) AS dt FROM price_history WHERE ticker = ? AND interval = ?",
-        (ticker, interval),
-    ).fetchone()
-    conn.close()
+    with get_conn() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                "SELECT MAX(datetime) AS dt FROM price_history WHERE ticker = %s AND interval = %s",
+                (ticker, interval),
+            )
+            row = cur.fetchone()
+
     if not row or not row["dt"]:
         return None
-    return datetime.strptime(row["dt"], "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=timezone.utc)
+
+    dt = row["dt"]
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=timezone.utc)
+    return dt
 
 
-def get_latest_ratio_date(ticker: str) -> Optional[datetime]:
-    conn = get_conn()
-    row = conn.execute(
-        "SELECT MAX(snapshot_date) AS d FROM financial_ratios WHERE ticker = ?",
-        (ticker,),
-    ).fetchone()
-    conn.close()
+def get_latest_ratio_date(ticker: str) -> Optional[date]:
+    with get_conn() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                "SELECT MAX(snapshot_date) AS d FROM financial_ratios WHERE ticker = %s",
+                (ticker,),
+            )
+            row = cur.fetchone()
+
     if not row or not row["d"]:
         return None
-    return datetime.strptime(row["d"], "%Y-%m-%d")
+    return row["d"]
 
 
 def should_refresh_daily_prices(ticker: str) -> bool:
@@ -559,11 +634,18 @@ def should_refresh_ratios(ticker: str) -> bool:
     latest = get_latest_ratio_date(ticker)
     if latest is None:
         return True
-    return datetime.utcnow() - latest > timedelta(days=85)
+    return (utcnow().date() - latest) > timedelta(days=85)
 
 
 def download_history(symbol: str, period: str, interval: str, auto_adjust: bool = False) -> pd.DataFrame:
-    df = yf.download(symbol, period=period, interval=interval, auto_adjust=auto_adjust, progress=False, threads=True)
+    df = yf.download(
+        symbol,
+        period=period,
+        interval=interval,
+        auto_adjust=auto_adjust,
+        progress=False,
+        threads=True,
+    )
     return normalize_yf_df(df)
 
 
@@ -596,7 +678,6 @@ def download_history_batch(symbols: List[str], period: str, interval: str, auto_
                 if not sub.empty:
                     out[sym] = sub
     else:
-        # Single symbol case
         if len(symbols) == 1:
             out[symbols[0]] = normalize_yf_df(raw)
 
@@ -616,8 +697,6 @@ def ensure_daily_price_history(ticker: str) -> None:
         if age <= timedelta(hours=18):
             return
 
-        # Fetch only a recent buffer window, then upsert
-        # This avoids re-downloading full history.
         if age <= timedelta(days=7):
             fetch_period = "1mo"
         elif age <= timedelta(days=31):
@@ -659,9 +738,9 @@ def batch_refresh_daily_price_history(tickers: List[str]) -> None:
     if not stale:
         return
 
-    # Split into new/no-data vs existing cache
     no_data = []
     incremental = []
+
     for ticker in stale:
         latest = get_latest_price_timestamp(ticker, "1d")
         if latest is None:
@@ -669,7 +748,6 @@ def batch_refresh_daily_price_history(tickers: List[str]) -> None:
         else:
             incremental.append(ticker)
 
-    # Full history only for first-time load
     if no_data:
         batch = download_history_batch(no_data, period="max", interval="1d", auto_adjust=False)
         for ticker, df in batch.items():
@@ -678,7 +756,6 @@ def batch_refresh_daily_price_history(tickers: List[str]) -> None:
                 continue
             persist_price_history(ticker, df, interval="1d", currency="TRY")
 
-    # Incremental recent-window refresh for existing symbols
     if incremental:
         batch = download_history_batch(incremental, period="6mo", interval="1d", auto_adjust=False)
         for ticker, df in batch.items():
@@ -691,9 +768,10 @@ def batch_refresh_daily_price_history(tickers: List[str]) -> None:
 def ensure_stock_info(ticker: str) -> dict:
     need_ratios = should_refresh_ratios(ticker)
 
-    conn = get_conn()
-    meta = conn.execute("SELECT * FROM metadata WHERE ticker = ?", (ticker,)).fetchone()
-    conn.close()
+    with get_conn() as conn:
+        with conn.cursor() as cur:
+            cur.execute("SELECT * FROM metadata WHERE ticker = %s", (ticker,))
+            meta = cur.fetchone()
 
     if meta is not None and not need_ratios:
         info = dict(meta)
@@ -727,31 +805,45 @@ def ensure_stock_info(ticker: str) -> dict:
 
 
 def get_latest_ratios_from_db(ticker: str) -> Optional[dict]:
-    conn = get_conn()
-    row = conn.execute(
-        "SELECT * FROM financial_ratios WHERE ticker = ? ORDER BY snapshot_date DESC LIMIT 1",
-        (ticker,),
-    ).fetchone()
-    conn.close()
+    with get_conn() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                "SELECT * FROM financial_ratios WHERE ticker = %s ORDER BY snapshot_date DESC LIMIT 1",
+                (ticker,),
+            )
+            row = cur.fetchone()
+
     if row is None:
         return None
+
     data = dict(row)
     return {k: data.get(k) for k in RATIO_FIELDS}
 
 
 def get_db_series(ticker: str, start_dt: Optional[datetime] = None) -> pd.Series:
-    conn = get_conn()
-    if start_dt is not None:
-        rows = conn.execute(
-            "SELECT datetime, close FROM price_history WHERE ticker = ? AND interval = '1d' AND datetime >= ? ORDER BY datetime ASC",
-            (ticker, iso_dt(start_dt)),
-        ).fetchall()
-    else:
-        rows = conn.execute(
-            "SELECT datetime, close FROM price_history WHERE ticker = ? AND interval = '1d' ORDER BY datetime ASC",
-            (ticker,),
-        ).fetchall()
-    conn.close()
+    with get_conn() as conn:
+        with conn.cursor() as cur:
+            if start_dt is not None:
+                cur.execute(
+                    """
+                    SELECT datetime, close
+                    FROM price_history
+                    WHERE ticker = %s AND interval = '1d' AND datetime >= %s
+                    ORDER BY datetime ASC
+                    """,
+                    (ticker, start_dt),
+                )
+            else:
+                cur.execute(
+                    """
+                    SELECT datetime, close
+                    FROM price_history
+                    WHERE ticker = %s AND interval = '1d'
+                    ORDER BY datetime ASC
+                    """,
+                    (ticker,),
+                )
+            rows = cur.fetchall()
 
     if not rows:
         return pd.Series(dtype="float64")
@@ -762,28 +854,29 @@ def get_db_series(ticker: str, start_dt: Optional[datetime] = None) -> pd.Series
 
 
 def get_db_ohlcv(ticker: str, start_dt: Optional[datetime] = None) -> pd.DataFrame:
-    conn = get_conn()
-    if start_dt is not None:
-        rows = conn.execute(
-            """
-            SELECT datetime, open, high, low, close, volume
-            FROM price_history
-            WHERE ticker = ? AND interval = '1d' AND datetime >= ?
-            ORDER BY datetime ASC
-            """,
-            (ticker, iso_dt(start_dt)),
-        ).fetchall()
-    else:
-        rows = conn.execute(
-            """
-            SELECT datetime, open, high, low, close, volume
-            FROM price_history
-            WHERE ticker = ? AND interval = '1d'
-            ORDER BY datetime ASC
-            """,
-            (ticker,),
-        ).fetchall()
-    conn.close()
+    with get_conn() as conn:
+        with conn.cursor() as cur:
+            if start_dt is not None:
+                cur.execute(
+                    """
+                    SELECT datetime, open, high, low, close, volume
+                    FROM price_history
+                    WHERE ticker = %s AND interval = '1d' AND datetime >= %s
+                    ORDER BY datetime ASC
+                    """,
+                    (ticker, start_dt),
+                )
+            else:
+                cur.execute(
+                    """
+                    SELECT datetime, open, high, low, close, volume
+                    FROM price_history
+                    WHERE ticker = %s AND interval = '1d'
+                    ORDER BY datetime ASC
+                    """,
+                    (ticker,),
+                )
+            rows = cur.fetchall()
 
     if not rows:
         return pd.DataFrame(columns=["Open", "High", "Low", "Close", "Volume"])
@@ -796,12 +889,13 @@ def get_db_ohlcv(ticker: str, start_dt: Optional[datetime] = None) -> pd.DataFra
         "high": "High",
         "low": "Low",
         "close": "Close",
-        "volume": "Volume"
+        "volume": "Volume",
     }).sort_index()
 
 
 def period_start(period: str) -> Optional[datetime]:
-    now = datetime.utcnow()
+    now = utcnow()
+
     if period == "1M":
         return now - timedelta(days=31)
     if period == "3M":
@@ -811,7 +905,7 @@ def period_start(period: str) -> Optional[datetime]:
     if period == "1Y":
         return now - timedelta(days=366)
     if period == "YTD":
-        return datetime(now.year, 1, 1)
+        return datetime(now.year, 1, 1, tzinfo=timezone.utc)
     if period == "3Y":
         return now - timedelta(days=365 * 3 + 2)
     if period == "5Y":
@@ -916,8 +1010,10 @@ def get_usd_series_for_stock(ticker: str, period: str) -> pd.Series:
         if rate:
             aligned_values.append(float(val) / rate)
             aligned_index.append(pd.Timestamp(ts))
+
     if not aligned_values:
         return pd.Series(dtype="float64")
+
     return pd.Series(aligned_values, index=pd.to_datetime(aligned_index), dtype="float64").sort_index()
 
 
@@ -928,21 +1024,15 @@ def align_to_master(master: pd.DatetimeIndex, series: pd.Series, tolerance: pd.T
     master = normalize_ts_index(master)
     src_index = normalize_ts_index(series.index)
 
-    src = pd.DataFrame({
-        "t": src_index,
-        "c": series.values
-    }).sort_values("t")
-
-    mdf = pd.DataFrame({
-        "t": master
-    }).sort_values("t")
+    src = pd.DataFrame({"t": src_index, "c": series.values}).sort_values("t")
+    mdf = pd.DataFrame({"t": master}).sort_values("t")
 
     aligned = pd.merge_asof(
         mdf,
         src,
         on="t",
         direction="backward",
-        tolerance=tolerance
+        tolerance=tolerance,
     )
 
     aligned = aligned.dropna(subset=["c"])
@@ -952,15 +1042,15 @@ def align_to_master(master: pd.DatetimeIndex, series: pd.Series, tolerance: pd.T
     return pd.Series(
         aligned["c"].values,
         index=pd.to_datetime(aligned["t"]),
-        dtype="float64"
+        dtype="float64",
     ).sort_index()
 
 
 def compute_standings_from_db(period: str, view: str) -> dict:
     if period == "1D":
-        start = datetime.utcnow() - timedelta(days=2)
+        start = utcnow() - timedelta(days=2)
     elif period == "1W":
-        start = datetime.utcnow() - timedelta(days=8)
+        start = utcnow() - timedelta(days=8)
     else:
         start = period_start(period)
 
@@ -1042,9 +1132,11 @@ def start_background_sync() -> None:
     thread = threading.Thread(target=worker, daemon=True)
     thread.start()
 
+
 @app.route("/")
 def home():
     return render_template("index.html")
+
 
 @app.route("/api/stocks/popular")
 def popular_stocks():
@@ -1067,8 +1159,6 @@ def stock_overview(ticker):
         info = ensure_stock_info(ticker)
         ratios = info.get("ratios") or get_latest_ratios_from_db(ticker) or {}
 
-        # Avoid second uncached info fetch. Use live info if ensure_stock_info fetched it,
-        # otherwise short-TTL cached info fetch.
         raw_info = info.get("_live_info") or fetch_info_cached(ticker)
 
         current_price = safe_val(raw_info.get("currentPrice") or raw_info.get("regularMarketPrice"))
@@ -1100,10 +1190,12 @@ def stock_overview(ticker):
             "day_low": day_low,
             "ratios": ratios,
         }
+
         if overview["current_price"] is not None and overview["previous_close"]:
             chg = overview["current_price"] - overview["previous_close"]
             overview["day_change"] = safe_val(chg)
             overview["day_change_pct"] = safe_val(chg / overview["previous_close"] * 100)
+
         return jsonify(overview)
     except Exception as e:
         traceback.print_exc()
@@ -1114,11 +1206,10 @@ def stock_overview(ticker):
 def reset_bad_data():
     bad = ["ODAS.IS", "HALKB.IS", "TSKB.IS"]
 
-    conn = get_conn()
-    for t in bad:
-        conn.execute("DELETE FROM price_history WHERE ticker = ?", (t,))
-    conn.commit()
-    conn.close()
+    with get_conn() as conn:
+        with conn.cursor() as cur:
+            for t in bad:
+                cur.execute("DELETE FROM price_history WHERE ticker = %s", (t,))
 
     invalidate_standings_cache()
     return jsonify({"status": "cleaned", "tickers": bad})
@@ -1129,6 +1220,7 @@ def price_data():
     ticker = request.args.get("ticker", "")
     period = request.args.get("period", "1M")
     currencies = request.args.get("currencies", "TRY")
+
     if not ticker:
         return jsonify({"error": "ticker required"}), 400
 
@@ -1170,7 +1262,7 @@ def price_data():
                     rate = nearest_rate_lookup(fx_series, pd.Timestamp(ts))
                     usd_points.append({
                         "t": int(pd.Timestamp(ts).timestamp() * 1000),
-                        "c": round(float(val) / rate, 4) if (rate and val is not None) else None
+                        "c": round(float(val) / rate, 4) if (rate and val is not None) else None,
                     })
             result["USD"] = usd_points
 
@@ -1185,11 +1277,16 @@ def usd_chart_data():
     ticker = request.args.get("ticker", "")
     period = request.args.get("period", "1M")
     compare = request.args.get("comparisons", "")
+
     if not ticker:
         return jsonify({"error": "ticker is required"}), 400
 
     yf_period, yf_interval = PERIOD_MAP.get(period, ("1mo", "1d"))
-    tolerance = {"5m": pd.Timedelta("10min"), "30m": pd.Timedelta("1h"), "1d": pd.Timedelta("3D")}.get(yf_interval, pd.Timedelta("3D"))
+    tolerance = {
+        "5m": pd.Timedelta("10min"),
+        "30m": pd.Timedelta("1h"),
+        "1d": pd.Timedelta("3D"),
+    }.get(yf_interval, pd.Timedelta("3D"))
 
     try:
         main_usd = get_usd_series_for_stock(ticker, period)
@@ -1224,7 +1321,11 @@ def chart_data():
         return jsonify({"error": "ticker is required"}), 400
 
     yf_period, yf_interval = PERIOD_MAP.get(period, ("1mo", "1d"))
-    tolerance = {"5m": pd.Timedelta("10min"), "30m": pd.Timedelta("1h"), "1d": pd.Timedelta("3D")}.get(yf_interval, pd.Timedelta("3D"))
+    tolerance = {
+        "5m": pd.Timedelta("10min"),
+        "30m": pd.Timedelta("1h"),
+        "1d": pd.Timedelta("3D"),
+    }.get(yf_interval, pd.Timedelta("3D"))
 
     try:
         main_series = get_cached_or_live_series(ticker, period, yf_interval, auto_adjust=False)
@@ -1257,8 +1358,10 @@ def chart_data():
 def ohlcv():
     ticker = request.args.get("ticker", "")
     period = request.args.get("period", "1M")
+
     if not ticker:
         return jsonify({"error": "ticker required"}), 400
+
     try:
         df = get_cached_or_live_ohlcv(ticker, period)
         return jsonify(ohlcv_to_list(df))
@@ -1272,7 +1375,6 @@ def standings():
     view = request.args.get("view", "all")
 
     try:
-        # DB-only. No network fetch on request path.
         data = get_standings_cached(period, view)
         return jsonify(data)
     except Exception as e:
@@ -1297,14 +1399,27 @@ def admin_backfill():
 
         ensure_fx_history()
         invalidate_standings_cache()
-        return jsonify({"ok": True, "processed": done, "db_path": DB_PATH})
+        return jsonify({"ok": True, "processed": done, "database": "supabase_postgres"})
     except Exception as e:
         traceback.print_exc()
         return jsonify({"error": str(e)}), 500
+
+
+@app.route("/api/db-check")
+def db_check():
+    try:
+        with get_conn() as conn:
+            with conn.cursor() as cur:
+                cur.execute("SELECT NOW() AS now")
+                row = cur.fetchone()
+        return jsonify({"ok": True, "db_time": str(row["now"])})
+    except Exception as e:
+        return jsonify({"ok": False, "error": str(e)}), 500
 
 
 init_db()
 start_background_sync()
 
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=5000)
+    port = int(os.environ.get("PORT", "5000"))
+    app.run(host="0.0.0.0", port=port)
